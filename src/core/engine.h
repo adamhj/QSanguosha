@@ -33,6 +33,7 @@ public:
     void addPackage(Package *package);
     void addBanPackage(const QString &package_name);
     QStringList getBanPackages() const;
+    void readBanPackages();
     Card *cloneCard(const QString &name, Card::Suit suit, int number) const;
     SkillCard *cloneSkillCard(const QString &name) const;
     QString getVersionNumber() const;

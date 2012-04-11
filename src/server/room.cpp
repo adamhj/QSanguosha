@@ -1581,7 +1581,9 @@ void Room::assignGeneralsForPlayers(const QList<ServerPlayer *> &to_assign){
         player->clearSelected();
 
         for(int i=0; i<choice_count; i++){
-            QString choice = player->findReasonable(choices);
+            QString choice = player->findReasonable(choices, true);
+            if(choice == NULL)
+                continue;
             player->addToSelected(choice);
             choices.removeOne(choice);
         }

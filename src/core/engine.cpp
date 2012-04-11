@@ -287,6 +287,12 @@ QStringList Engine::getBanPackages() const{
         return ban_package.toList();
 }
 
+void Engine::readBanPackages() {
+    foreach(QString package_name, Config.BanPackages) {
+        this->addBanPackage(package_name);
+    }
+}
+
 QString Engine::translate(const QString &to_translate) const{
     return translations.value(to_translate, to_translate);
 }

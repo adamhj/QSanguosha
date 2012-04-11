@@ -38,6 +38,14 @@ int main(int argc, char *argv[])
     BanPair::loadBanPairs();
 
     if(qApp->arguments().contains("-server")){
+        int iParamIdx;
+        if((iParamIdx = qApp->arguments().indexOf("-server")) > 0) {
+            ++iParamIdx;
+            if(iParamIdx < qApp->arguments().size()) {
+                Config.ServerPort = qApp->arguments().at(iParamIdx).toInt();
+            }
+        }
+        Sanguosha->readBanPackages();
         Server *server = new Server(qApp);
         printf("Server is starting on port %u\n", Config.ServerPort);
 
@@ -45,7 +53,7 @@ int main(int argc, char *argv[])
             printf("Starting successfully\n");
         else
             printf("Starting failed!\n");
-
+        fflush(stdout);
         return qApp->exec();
     }
 
