@@ -13,122 +13,82 @@
 #include <QStringList>
 #include <QMessageBox>
 #include <QDir>
-#include <QLibrary>
 #include <QApplication>
 
 Engine *Sanguosha = NULL;
 
 extern "C" {
-    Package *NewStandard();
-    Package *NewWind();
-    Package *NewFire();
-    Package *NewThicket();
-    Package *NewMountain();
-    Package *NewGod();
-    Package *NewYitian();
-    Package *NewSP();
-    Package *NewYJCM();
-    Package *NewBGM();
-    Package *NewWisdom();
-    Package *NewTest();
-
-    Package *NewStandardCard();
-    Package *NewStandardExCard();
-    Package *NewManeuvering();
-    Package *NewSPCard();
-    Package *NewNostalgia();
-    Package *NewYitianCard();
-    Package *NewJoy();
-    Package *NewDisaster();
-    Package *NewJoyEquip();
-
-    Scenario *NewGuanduScenario();
-    Scenario *NewFanchengScenario();
-    Scenario *NewCoupleScenario();
-    Scenario *NewZombieScenario();
-    Scenario *NewImpasseScenario();
-    Scenario *NewCustomScenario();
-
-    Scenario *NewMiniScene_01();
-    Scenario *NewMiniScene_02();
-    Scenario *NewMiniScene_03();
-    Scenario *NewMiniScene_04();
-    Scenario *NewMiniScene_05();
-    Scenario *NewMiniScene_06();
-    Scenario *NewMiniScene_07();
-    Scenario *NewMiniScene_08();
-    Scenario *NewMiniScene_09();
-    Scenario *NewMiniScene_10();
-    Scenario *NewMiniScene_11();
-    Scenario *NewMiniScene_12();
-    Scenario *NewMiniScene_13();
-    Scenario *NewMiniScene_14();
-    Scenario *NewMiniScene_15();
-    Scenario *NewMiniScene_16();
-    Scenario *NewMiniScene_17();
-    Scenario *NewMiniScene_18();
-    Scenario *NewMiniScene_19();
-    Scenario *NewMiniScene_20();
+    int luaopen_sgs(lua_State *);
 }
 
-extern "C" {
-    int luaopen_sgs(lua_State *);
+void Engine::addPackage(const QString &name){
+    Package *pack = PackageAdder::packages()[name];
+    if(pack)
+        addPackage(pack);
+    else
+        qWarning("Package %s cannot be loaded!", qPrintable(name));
+}
+
+void Engine::addScenario(const QString &name){
+    Scenario *scenario = ScenarioAdder::scenarios()[name];
+    if(scenario)
+        addScenario(scenario);
+    else
+        qWarning("Scenario %s cannot be loaded!", qPrintable(name));
 }
 
 Engine::Engine()
 {
     Sanguosha = this;
 
-    addPackage(NewStandard());
-    addPackage(NewWind());
-    addPackage(NewFire());
-    addPackage(NewThicket());
-    addPackage(NewMountain());
-    addPackage(NewGod());
-    addPackage(NewSP());
-    addPackage(NewYJCM());
-    addPackage(NewBGM());
-    addPackage(NewYitian());
-    addPackage(NewWisdom());
-    addPackage(NewTest());
+    QStringList package_names;
+    package_names << "StandardCard"
+            << "StandardExCard"
+            << "Maneuvering"
+            << "SPCard"
+            << "YitianCard"
+            << "Nostalgia"
+            << "Joy"
+            << "Disaster"
+            << "JoyEquip"
 
-    addPackage(NewStandardCard());
-    addPackage(NewStandardExCard());
-    addPackage(NewManeuvering());
-    addPackage(NewSPCard());
-    addPackage(NewYitianCard());
-    addPackage(NewNostalgia());
-    addPackage(NewJoy());
-    addPackage(NewDisaster());
-    addPackage(NewJoyEquip());
+            << "Standard"
+            << "Wind"
+            << "Fire"
+            << "Thicket"
+            << "Mountain"
+            << "God"
+            << "SP"
+            << "YJCM"
+            << "YJCM2012"
+            << "Special3v3"
+            << "BGM"
+            << "Yitian"
+            << "Wisdom"
+            << "Test";
 
-    addScenario(NewGuanduScenario());
-    addScenario(NewFanchengScenario());
-    addScenario(NewCoupleScenario());
-    addScenario(NewZombieScenario());
-    addScenario(NewImpasseScenario());
-    addScenario(NewCustomScenario());
+    foreach(QString name, package_names)
+        addPackage(name);
 
-    addScenario(NewMiniScene_01());
-    addScenario(NewMiniScene_02());
-    addScenario(NewMiniScene_03());
-    addScenario(NewMiniScene_04());
-    addScenario(NewMiniScene_05());
-    addScenario(NewMiniScene_06());
-    addScenario(NewMiniScene_07());
-    addScenario(NewMiniScene_08());
-    addScenario(NewMiniScene_09());
-    addScenario(NewMiniScene_10());
-    addScenario(NewMiniScene_11());
-    addScenario(NewMiniScene_12());
-    addScenario(NewMiniScene_13());
-    addScenario(NewMiniScene_14());
-    addScenario(NewMiniScene_15());
-    addScenario(NewMiniScene_16());
-    addScenario(NewMiniScene_17());
-    addScenario(NewMiniScene_18());
-    addScenario(NewMiniScene_19());
-    addScenario(NewMiniScene_20());
+    QStringList scene_names;
+    scene_names << "Guandu"
+                << "Fancheng"
+                << "Couple"
+                << "Zombie"
+                << "Impasse"
+                << "Custom";
+
+    for(int i=1; i<=21; i++){
+        scene_names << QString("MiniScene_%1").arg(i, 2, 10, QChar('0'));
+    }
+
+    foreach(QString name, scene_names)
+        addScenario(name);
+
+    foreach(const Skill *skill, skills.values()){
+        Skill *mutable_skill = const_cast<Skill *>(skill);
+        mutable_skill->initMediaSource();
+    }
 
     // available game modes
     modes["02p"] = tr("2 players");
@@ -144,9 +104,12 @@ Engine::Engine()
     modes["07p"] = tr("7 players");
     modes["08p"] = tr("8 players");
     modes["08pd"] = tr("8 players (2 renegades)");
+    modes["08pz"] = tr("8 players (0 renegade)");
     modes["08same"] = tr("8 players (same mode)");
     modes["09p"] = tr("9 players");
-    modes["10p"] = tr("10 players");
+    modes["10pd"] = tr("10 players");
+    modes["10p"] = tr("10 players (1 renegade)");
+    modes["10pz"] = tr("10 players (0 renegade)");
 
     connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(deleteLater()));
 
@@ -155,6 +118,10 @@ Engine::Engine()
     if(lua == NULL){
         QMessageBox::warning(NULL, tr("Lua script error"), error_msg);
         exit(1);
+    }
+
+    foreach(QString ban, getBanPackages()){
+        addBanPackage(ban);
     }
 }
 
@@ -388,7 +355,7 @@ SkillCard *Engine::cloneSkillCard(const QString &name) const{
 }
 
 QString Engine::getVersionNumber() const{
-    return "20120122";
+    return "20120405";
 }
 
 QString Engine::getVersion() const{
@@ -401,7 +368,7 @@ QString Engine::getVersion() const{
 }
 
 QString Engine::getVersionName() const{
-    return tr("Chuxi");
+    return tr("Taqing");
 }
 
 QString Engine::getMODName() const{
@@ -412,7 +379,7 @@ QStringList Engine::getExtensions() const{
     QStringList extensions;
     QList<const Package *> packages = findChildren<const Package *>();
     foreach(const Package *package, packages){
-        if(package->inherits("Scenario"))
+        if(package->inherits("Scenario")||package->objectName()=="Special3v3")
             continue;
 
         extensions << package->objectName();
@@ -513,24 +480,6 @@ void Engine::getRoles(const QString &mode, char *roles) const{
     }else if(mode == "04_1v3"){
         qstrcpy(roles, "ZFFF");
         return;
-    }else if(Config.EnableHegemony){
-        static const char *table[] = {
-            "",
-            "",
-
-            "ZN", // 2
-            "ZNN", // 3
-            "ZNNN", // 4
-            "ZNNNN", // 5
-            "ZNNNNN", // 6
-            "ZNNNNNN", // 7
-            "ZNNNNNNN", // 8
-            "ZNNNNNNNN", // 9
-            "ZNNNNNNNNN" // 10
-        };
-
-        qstrcpy(roles, table[n]);
-        return;
     }
 
     if(modes.contains(mode)){
@@ -546,7 +495,7 @@ void Engine::getRoles(const QString &mode, char *roles) const{
             "ZCCFFFN", // 7
             "ZCCFFFFN", // 8
             "ZCCCFFFFN", // 9
-            "ZCCCFFFFNN" // 10
+            "ZCCCFFFFFN" // 10
         };
 
         static const char *table2[] = {
@@ -565,7 +514,15 @@ void Engine::getRoles(const QString &mode, char *roles) const{
         };
 
         const char **table = mode.endsWith("d") ? table2 : table1;
-        qstrcpy(roles, table[n]);
+        QString rolechar = table[n];
+        if(mode.endsWith("z"))
+            rolechar.replace("N", "C");
+        else if(Config.EnableHegemony){
+            rolechar.replace("F", "N");
+            rolechar.replace("C", "N");
+        }
+
+        qstrcpy(roles, rolechar.toStdString().c_str());
     }else if(mode.startsWith("@")){
         if(n == 8)
             qstrcpy(roles, "ZCCCNFFF");
@@ -626,6 +583,7 @@ QStringList Engine::getRandomLords() const{
     if(Config.GameMode == "zombie_mode")
         banlist_ban.append(Config.value("Banlist/zombie").toStringList());
     else if((Config.GameMode.endsWith("p") ||
+             Config.GameMode.endsWith("pz") ||
              Config.GameMode.endsWith("pd")))
         banlist_ban.append(Config.value("Banlist/Roles").toStringList());
 
@@ -703,10 +661,12 @@ QStringList Engine::getRandomGenerals(int count, const QSet<QString> &ban_set) c
 }
 
 QList<int> Engine::getRandomCards() const{
-    bool exclude_disaters = false;
+    bool exclude_disaters = false, using_new_3v3 = false;
 
-    if(Config.GameMode == "06_3v3")
+    if(Config.GameMode == "06_3v3"){
         exclude_disaters = Config.value("3v3/ExcludeDisasters", true).toBool();
+        using_new_3v3 = Config.value("3v3/UsingNewMode", false).toBool();
+    }
 
     if(Config.GameMode == "04_1v3")
         exclude_disaters = true;
@@ -717,6 +677,8 @@ QList<int> Engine::getRandomCards() const{
             continue;
 
         if(!ban_package.contains(card->getPackage()))
+            list << card->getId();
+        else if(card->getPackage() == "Special3v3" && using_new_3v3)
             list << card->getId();
     }
 
@@ -769,6 +731,10 @@ void Engine::playCardEffect(const QString &card_name, bool is_male) const{
 
 const Skill *Engine::getSkill(const QString &skill_name) const{
     return skills.value(skill_name, NULL);
+}
+
+QStringList Engine::getSkillNames() const{
+    return skills.keys();
 }
 
 const TriggerSkill *Engine::getTriggerSkill(const QString &skill_name) const{

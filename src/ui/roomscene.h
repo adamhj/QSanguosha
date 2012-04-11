@@ -14,7 +14,8 @@ class Window;
 class Button;
 class CardContainer;
 class GuanxingBox;
-
+class IrregularButton;
+class TrustButton;
 class QGroupBox;
 
 #include <QGraphicsScene>
@@ -31,6 +32,16 @@ class QGroupBox;
 #include <QGraphicsProxyWidget>
 #include <QThread>
 #include <QHBoxLayout>
+
+class ScriptExecutor: public QDialog{
+    Q_OBJECT
+
+public:
+    ScriptExecutor(QWidget *parent);
+
+public slots:
+    void doScript();
+};
 
 class DeathNoteDialog: public QDialog{
     Q_OBJECT
@@ -151,6 +162,7 @@ public slots:
     void makeDamage();
     void makeKilling();
     void makeReviving();
+    void doScript();
 
     EffectAnimation * getEA() const{return animations;}
 
@@ -174,8 +186,8 @@ private:
     QQueue<CardItem*> piled_discards;
     QMainWindow *main_window;
     QComboBox *role_combobox;
-    QPushButton *trust_button, *untrust_button;
-    QPushButton *ok_button, *cancel_button, *discard_button;
+    IrregularButton *ok_button, *cancel_button, *discard_button;
+    TrustButton *trust_button;
     QPushButton *reverse_button, *free_discard;
     QMenu *known_cards_menu, *change_general_menu;
     Window *prompt_box;
@@ -248,7 +260,8 @@ private:
     void removeWidgetFromSkillDock(QWidget *widget);
     QList<QPointF> getPhotoPositions() const;
     void createStateItem();
-    void createButtons();
+    void createControlButtons();
+    void createExtraButtons();
     void createReplayControlBar();
 
     void fillGenerals1v1(const QStringList &names);
@@ -291,7 +304,7 @@ private slots:
     void doTimeout();
     void startInXs();
     void hideAvatars();
-    void changeHp(const QString &who, int delta, DamageStruct::Nature nature);
+    void changeHp(const QString &who, int delta, DamageStruct::Nature nature, bool losthp);
     void moveFocus(const QString &who);
     void setEmotion(const QString &who, const QString &emotion,bool permanent = false);
     void showSkillInvocation(const QString &who, const QString &skill_name);

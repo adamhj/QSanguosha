@@ -43,8 +43,6 @@ void Slash::use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &t
         log.type = "#UnsetDrank";
         log.from = source;
         room->sendLog(log);
-
-        room->setPlayerFlag(source, "-drank");
     }
 }
 
@@ -59,6 +57,7 @@ void Slash::onEffect(const CardEffectStruct &card_effect) const{
     effect.to = card_effect.to;
     effect.drank = effect.from->hasFlag("drank");
 
+    room->setPlayerFlag(effect.from, "-drank");
     room->slashEffect(effect);
 }
 
@@ -78,6 +77,9 @@ bool Slash::targetFilter(const QList<const Player *> &targets, const Player *to_
         distance_limit = false;
         slash_targets ++;
     }
+
+    if(Self->hasSkill("lihuo") && inherits("FireSlash"))
+        slash_targets ++;
 
     if(Self->hasSkill("shenji") && Self->getWeapon() == NULL)
         slash_targets = 3;
@@ -235,7 +237,7 @@ public:
             return false;
 
         Room *room = player->getRoom();
-        const Card *card = room->askForCard(player, "slash", "blade-slash");
+        const Card *card = room->askForCard(player, "slash", "blade-slash:" + effect.to->objectName());
         if(card){
             // if player is drank, unset his flag
             if(player->hasFlag("drank"))
@@ -296,10 +298,6 @@ public:
         slash->addSubcard(second);
 
         return slash;
-    }
-
-    virtual bool useCardSoundEffect() const{
-        return true;
     }
 };
 
@@ -371,6 +369,7 @@ public:
             log.type = "#AxeSkill";
             log.from = player;
             log.to << effect.to;
+            log.arg = objectName();
             room->sendLog(log);
 
             room->slashResult(effect, NULL);
@@ -474,7 +473,6 @@ public:
                     jink->setSkillName(objectName());
                     room->provide(jink);
                     room->setEmotion(player, "good");
-                    room->broadcastInvoke("playAudio", objectName());
 
                     return true;
                 }else
@@ -576,7 +574,11 @@ void SavageAssault::onEffect(const CardEffectStruct &effect) const{
         damage.to = effect.to;
         damage.nature = DamageStruct::Normal;
 
-        damage.from = effect.from;
+        if(effect.from->isAlive())
+            damage.from = effect.from;
+        else
+            damage.from = NULL;
+
         room->damage(damage);
     }
 }
@@ -596,7 +598,10 @@ void ArcheryAttack::onEffect(const CardEffectStruct &effect) const{
         DamageStruct damage;
         damage.card = this;
         damage.damage = 1;
-        damage.from = effect.from;
+        if(effect.from->isAlive())
+            damage.from = effect.from;
+        else
+            damage.from = NULL;
         damage.to = effect.to;
         damage.nature = DamageStruct::Normal;
 
@@ -669,16 +674,54 @@ void Collateral::use(Room *room, ServerPlayer *source, const QList<ServerPlayer 
     bool on_effect = room->cardEffect(this, source, killer);
     if(on_effect){
         QString prompt = QString("collateral-slash:%1:%2")
-                         .arg(source->objectName()).arg(victims.first()->objectName());
+                .arg(source->objectName()).arg(victims.first()->objectName());
         const Card *slash = room->askForCard(killer, "slash", prompt);
-        if(slash){
-            CardUseStruct use;
-            use.card = slash;
-            use.from = killer;
-            use.to = victims;
-            room->useCard(use);
-        }else{
-            source->obtainCard(weapon);
+        if (victims.first()->isDead()){
+            if (source->isDead()){
+                if(killer->isAlive() && killer->getWeapon()){
+                    int card_id = weapon->getId();
+                    room->throwCard(card_id);
+                }
+            }
+            else
+            {
+                if(killer->isAlive() && killer->getWeapon()){
+                    source->obtainCard(weapon);
+                }
+            }
+        }
+        if (source->isDead()){
+            if (killer->isAlive()){
+                if(slash){
+                    CardUseStruct use;
+                    use.card = slash;
+                    use.from = killer;
+                    use.to = victims;
+                    room->useCard(use);
+                }
+                else{
+                    if(killer->getWeapon()){
+                        int card_id = weapon->getId();
+                        room->throwCard(card_id);
+                    }
+                }
+            }
+        }
+        else{
+            if(killer->isDead()) ;
+            else{
+                if(slash){
+                    CardUseStruct use;
+                    use.card = slash;
+                    use.from = killer;
+                    use.to = victims;
+                    room->useCard(use);
+                }
+                else{
+                    if(killer->getWeapon())
+                        source->obtainCard(weapon);
+                }
+            }
         }
     }
 }
@@ -755,7 +798,10 @@ void Duel::onEffect(const CardEffectStruct &effect) const{
 
     DamageStruct damage;
     damage.card = this;
-    damage.from = second;
+    if(second->isAlive())
+        damage.from = second;
+    else
+        damage.from = NULL;
     damage.to = first;
 
     room->damage(damage);
@@ -782,6 +828,8 @@ bool Snatch::targetFilter(const QList<const Player *> &targets, const Player *to
 }
 
 void Snatch::onEffect(const CardEffectStruct &effect) const{
+    if(effect.from->isDead())
+        return;
     if(effect.to->isAllNude())
         return;
 
@@ -813,6 +861,8 @@ bool Dismantlement::targetFilter(const QList<const Player *> &targets, const Pla
 }
 
 void Dismantlement::onEffect(const CardEffectStruct &effect) const{
+    if(effect.from->isDead())
+        return;
     if(effect.to->isAllNude())
         return;
 
@@ -853,6 +903,7 @@ bool Indulgence::targetFilter(const QList<const Player *> &targets, const Player
 }
 
 void Indulgence::takeEffect(ServerPlayer *target) const{
+    target->clearHistory();
     target->skip(Player::Play);
 }
 
@@ -1061,11 +1112,11 @@ StandardCardPackage::StandardCardPackage()
     {
         QList<Card *> horses;
         horses << new DefensiveHorse(Card::Spade, 5)
-                << new DefensiveHorse(Card::Club, 5)
-                << new DefensiveHorse(Card::Heart, 13)
-                << new OffensiveHorse(Card::Heart, 5)
-                << new OffensiveHorse(Card::Spade, 13)
-                << new OffensiveHorse(Card::Diamond, 13);
+               << new DefensiveHorse(Card::Club, 5)
+               << new DefensiveHorse(Card::Heart, 13)
+               << new OffensiveHorse(Card::Heart, 5)
+               << new OffensiveHorse(Card::Spade, 13)
+               << new OffensiveHorse(Card::Diamond, 13);
 
         horses.at(0)->setObjectName("jueying");
         horses.at(1)->setObjectName("dilu");
@@ -1125,9 +1176,9 @@ StandardExCardPackage::StandardExCardPackage()
 {
     QList<Card *> cards;
     cards << new IceSword(Card::Spade, 2)
-            << new RenwangShield(Card::Club, 2)
-            << new Lightning(Card::Heart, 12)
-            << new Nullification(Card::Diamond, 12);
+          << new RenwangShield(Card::Club, 2)
+          << new Lightning(Card::Heart, 12)
+          << new Nullification(Card::Diamond, 12);
 
     foreach(Card *card, cards)
         card->setParent(this);
