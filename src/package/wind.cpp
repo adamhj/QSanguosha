@@ -216,18 +216,28 @@ public:
 class Leiji: public TriggerSkill{
 public:
     Leiji():TriggerSkill("leiji"){
-        events << CardResponsed;
+        events << CardAsked << CardResponsed;
         view_as_skill = new LeijiViewAsSkill;
     }
 
+    virtual int getPriority() const{
+        return 3;
+    }
+
     virtual bool trigger(TriggerEvent event, ServerPlayer *zhangjiao, QVariant &data) const{
-        CardStar card_star = data.value<CardStar>();
-        if(!card_star->inherits("Jink"))
-            return false;
+        if(event == CardAsked){
+            if(data.toString() == "jink")
+                zhangjiao->tag["leiji_invoke"] = true;
+        }
+        else{
+            CardStar card_star = data.value<CardStar>();
+            if(!card_star->inherits("Jink") || zhangjiao->tag["leiji_invoke"].isNull())
+                return false;
 
-        Room *room = zhangjiao->getRoom();
-        room->askForUseCard(zhangjiao, "@@leiji", "@leiji");
-
+            zhangjiao->tag["leiji_invoke"] = QVariant();
+            Room *room = zhangjiao->getRoom();
+            room->askForUseCard(zhangjiao, "@@leiji", "@leiji");
+        }
         return false;
     }
 };
@@ -665,7 +675,7 @@ bool GuhuoCard::guhuo(ServerPlayer* yuji, const QString& message) const{
     Room *room = yuji->getRoom();
     room->setTag("Guhuoing", true);
 
-    yuji->addToPile("guhuo_pile", this->getEffectiveId(), false);
+    yuji->addToPile("#guhuo_pile", this->getEffectiveId(), false);
     room->moveCardTo(this, yuji, Player::Special, false);
 
     QList<ServerPlayer *> players = room->getOtherPlayers(yuji);

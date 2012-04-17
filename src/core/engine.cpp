@@ -85,11 +85,6 @@ Engine::Engine()
     foreach(QString name, scene_names)
         addScenario(name);
 
-    foreach(const Skill *skill, skills.values()){
-        Skill *mutable_skill = const_cast<Skill *>(skill);
-        mutable_skill->initMediaSource();
-    }
-
     // available game modes
     modes["02p"] = tr("2 players");
     //modes["02pbb"] = tr("2 players (using blance beam)");
@@ -122,6 +117,11 @@ Engine::Engine()
 
     foreach(QString ban, getBanPackages()){
         addBanPackage(ban);
+    }
+
+    foreach(const Skill *skill, skills.values()){
+        Skill *mutable_skill = const_cast<Skill *>(skill);
+        mutable_skill->initMediaSource();
     }
 }
 
@@ -664,8 +664,9 @@ QList<int> Engine::getRandomCards() const{
     bool exclude_disaters = false, using_new_3v3 = false;
 
     if(Config.GameMode == "06_3v3"){
-        exclude_disaters = Config.value("3v3/ExcludeDisasters", true).toBool();
         using_new_3v3 = Config.value("3v3/UsingNewMode", false).toBool();
+        exclude_disaters = Config.value("3v3/ExcludeDisasters", true).toBool() ||
+                            using_new_3v3;
     }
 
     if(Config.GameMode == "04_1v3")
@@ -676,9 +677,11 @@ QList<int> Engine::getRandomCards() const{
         if(exclude_disaters && card->inherits("Disaster"))
             continue;
 
-        if(!ban_package.contains(card->getPackage()))
+        if(card->getPackage() == "Special3v3" && using_new_3v3){
             list << card->getId();
-        else if(card->getPackage() == "Special3v3" && using_new_3v3)
+            list.removeOne(98);
+        }
+        else if(!ban_package.contains(card->getPackage()))
             list << card->getId();
     }
 

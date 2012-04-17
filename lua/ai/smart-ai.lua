@@ -47,7 +47,7 @@ sgs.ai_slash_weaponfilter = {}
 sgs.ai_slash_prohibit = 	{}
 sgs.ai_trick_prohibit =		{} -- obsolete
 sgs.ai_view_as = {}
-sgs.ai_zerocardview = {}
+sgs.ai_cardsview = {}
 sgs.dynamic_value = 		{
 	damage_card = 			{},
 	control_usecard = 		{},
@@ -75,8 +75,9 @@ function setInitialTables()
 	sgs.masochism_skill = 		"fankui|jieming|yiji|ganglie|enyuan|fangzhu|guixin"
 	sgs.wizard_skill = 			"guicai|guidao|jilve|tiandu"
 	sgs.wizard_harm_skill = 	"guicai|guidao|jilve"
-	sgs.priority_skill = 		"dimeng|haoshi|qingnang|jijiu|jizhi|guzheng|qixi|xiaoji|jieyin|guose"
-	sgs.exclusive_skill = 		"huilei|duanchang|enyuan|wuhun|leiji|buqu|jushou|yiji|ganglie|guixin"
+	sgs.priority_skill = 		"dimeng|haoshi|qingnang|jizhi|guzheng|qixi|jieyin|guose|duanliang|fanjian|lijian|manjuan|lihun"
+	sgs.save_skill = 			"jijiu|buyi|jiefan|chunlao"
+	sgs.exclusive_skill = 		"huilei|duanchang|enyuan|wuhun|buqu|yiji|ganglie|guixin|jieming|miji"
 	sgs.cardneed_skill =        "paoxiao|tianyi|xianzhen|shuangxiong|jizhi|guose|duanliang|qixi|qingnang|" ..
 								"jieyin|renjie|zhiheng|rende|jujian|guicai|guidao|jilve|longhun|wusheng|longdan"
 	sgs.drawpeach_skill =       "tuxi|qiaobian"
@@ -98,7 +99,19 @@ function SmartAI:initialize(player)
 	self.room = player:getRoom()
 	self.role  = player:getRole()
 	self.lua_ai = sgs.LuaAI(player)
-	self.lua_ai.callback = function(method_name, ...)
+	self.lua_ai.callback = function(full_method_name, ...)
+		--The __FUNCTION__ macro is defined as CLASS_NAME::SUBCLASS_NAME::FUNCTION_NAME 
+		--in MSVC, while in gcc only FUNCTION_NAME is in place.
+		local method_name_start = 1;
+		while true do		    
+			local found = string.find(full_method_name, "::", method_name_start);			
+			if found ~= nil then			    
+				method_name_start = found + 2;
+			else			    
+				break
+			end			     
+		end
+		local method_name = string.sub(full_method_name, method_name_start)
 		local method = self[method_name]
 		if method then
 			local success, result1, result2
@@ -168,10 +181,10 @@ function sgs.getDefense(player)
 		end
 	end
 	if player:getArmor() and player:getArmor():inherits("EightDiagram") and player:hasSkill("tiandu") then
-		defense = defense + 0.3
+		defense = defense + 0.5
 	end
-	if player:hasSkill("jieming") then
-		defense = defense + 1
+	if player:hasSkill("jieming") or player:hasSkill("yiji") or player:hasSkill("guixin") then
+		defense = defense + 4
 	end
 	if player:getMark("@tied")>0 then
 		defense = defense + 1
@@ -471,7 +484,7 @@ function SmartAI:cardNeed(card)
 		if (self.player:getHp() < 3 or self.player:getLostHp() > 1 and not self:hasSkill("longhun")) or self:hasSkills("kurou|benghuai") then return 14 end
 		return self:getUseValue(card)
 	end
-	if self:isWeak() and card:inherits("Jink") and self:getCardsNum("Jink") < self.player:getHp() then return 12 end
+	if self:isWeak() and card:inherits("Jink") and self:getCardsNum("Jink") < 1 then return 12 end
 	if sgs[self.player:getGeneralName().."_keep_value"] then
 		value = sgs[self.player:getGeneralName().."_keep_value"][class_name]
 		if value then return value+4 end
@@ -481,11 +494,13 @@ function SmartAI:cardNeed(card)
 		if value then return value+4 end
 	end
 
-	if card:inherits("Jink") and self:getCardsNum("Jink") == 0 then return 5.9 end
+	if card:inherits("Slash") and self:getCardsNum("Slash") == 0 then return 5.9 end
 	if card:inherits("Analeptic") then
 		if self.player:getHp() < 2 then return 10 end
 	end
 	if card:inherits("Slash") and (self:getCardsNum("Slash") > 0) then return 4 end
+	if card:inherits("Crossbow") and  self:hasSkills("luoshen|yongsi|kurou|keji|wusheng|wushen",self.player) then return 20 end
+	if card:inherits("Axe") and  self:hasSkills("luoyi|jiushi|jiuchi|pojun",self.player) then return 15 end
 	if card:inherits("Weapon") and (not self.player:getWeapon()) and (self:getCardsNum("Slash") > 1) then return 6 end
 	if card:inherits("Nullification") and self:getCardsNum("Nullification") == 0 then
 		if self.player:containsTrick("indulgence") or self.player:containsTrick("supply_shortage") then return 10 end
@@ -642,6 +657,27 @@ function SmartAI:getPriorTarget()
 	end
 	if #self.enemies == 0 then return end
 	local prior_targets = {}
+
+	for _, enemy in ipairs(self.enemies) do	
+		if not inOneGroup(enemy) and self:hasSkills(sgs.save_skill, player) then
+			table.insert(prior_targets, enemy)
+		end
+	end
+	
+	if #prior_targets > 0 then
+		self:sort(prior_targets, "threat")
+		return prior_targets[1]
+	end
+
+	for _, enemy in ipairs(self.enemies) do
+		if enemy:isLord() and not inOneGroup(enemy) and sgs.isLordInDanger() then return enemy end
+	end
+
+	self:sort(self.enemies, "defense")
+	for _, enemy in ipairs(self.enemies) do
+		if enemy:getHp() < 2 and not inOneGroup(enemy) then return enemy end
+	end
+
 	for _, enemy in ipairs(self.enemies) do	
 		if not inOneGroup(enemy) and self:hasSkills(sgs.priority_skill, player) then
 			table.insert(prior_targets, enemy)
@@ -1154,6 +1190,14 @@ function SmartAI:objectiveLevel(player)
 					else
 						return 0
 					end
+				elseif renegade_num > 1 then
+					if player:isLord() then
+						return 0
+					elseif sgs.evaluatePlayerRole(player) == "renegade" then
+						return 3
+					else
+						return 5
+					end
 				else
 					if process == "loyalist" then
 						if player:isLord() then
@@ -1233,7 +1277,7 @@ function SmartAI:objectiveLevel(player)
 			else
 				if self.player:isLord() then return 0
 				elseif #players == loyal_num+1 and loyal_num == 1 and not player:isLord() then return 5 
-				elseif sgs.evaluatePlayerRole(player) == "loyalist" then return -2 end
+				elseif not player:isLord() then return 0.5 end
 			end
 		end
 		if loyal_num == 0 then
@@ -1658,6 +1702,7 @@ end
 
 function SmartAI:askForDiscard(reason, discard_num, optional, include_equip)
 	local callback = sgs.ai_skill_discard[reason]
+	self:assignKeep(self.player:getHp(),true)
 	if type(callback) == "function" then
 		if callback(self, discard_num, optional, include_equip) then return callback(self, discard_num, optional, include_equip) end
 	elseif optional then return {} end
@@ -1746,7 +1791,7 @@ function SmartAI:askForNullification(trick, from, to, positive)
 			if trick:inherits("AOE") then
 				local lord = self.room:getLord()
 				local currentplayer = self.room:getCurrent()
-				if self:isFriend(lord) and self:isWeak(lord) and 
+				if self:isFriend(lord) and self:isWeak(lord) and self:aoeIsEffective(trick, lord)and 
 					((lord:getSeat() - currentplayer:getSeat()) % (self.room:alivePlayerCount())) >
 					((to:getSeat() - currentplayer:getSeat()) % (self.room:alivePlayerCount()))	and not
 					(self.player:objectName() == to:objectName() and self.player:getHp() == 1 and not self:canAvoidAOE(trick)) then
@@ -1760,7 +1805,7 @@ function SmartAI:askForNullification(trick, from, to, positive)
 						return null_card
 					end
 				end
-				if self:isWeak(to) then
+				if self:isWeak(to) and self:aoeIsEffective(trick, to) then
 					if ((to:getSeat() - currentplayer:getSeat()) % (self.room:alivePlayerCount())) >
 					((self.player:getSeat() - currentplayer:getSeat()) % (self.room:alivePlayerCount())) or null_num > 1 then
 						return null_card
@@ -1881,7 +1926,7 @@ function SmartAI:askForCardChosen(who, flags, reason)
 		end
 	else
 		if flags:match("e") then
-			if self:isEquip("Crossbow",who) then
+			if self:isEquip("Crossbow",who) and who:getWeapon() then
 				for _, friend in ipairs(self.friends) do
 					if who:distanceTo(friend) <= 1 then return who:getWeapon():getId() end
 				end
@@ -2097,7 +2142,13 @@ end
 
 function SmartAI:getCardNeedPlayer(cards)
 	cards = cards or sgs.QList2Table(self.player:getHandcards())
-	
+
+	self:sort(self.enemies, "hp")
+	for _,acard in ipairs(cards) do
+		if acard:inherits("Shit") and #self.enemies > 0 then
+			return acard, self.enemies[1]
+		end
+	end	
 	
 	-- special move between liubei and xunyu and huatuo
 	local cardtogivespecial = {}
@@ -2281,6 +2332,9 @@ function SmartAI:getCardNeedPlayer(cards)
 	end
 
 	if (self.player:hasSkill("rende") and self.player:isWounded() and self.player:usedTimes("RendeCard") < 2) then 
+		if (self.player:getHandcardNum() < 2 and self.player:usedTimes("RendeCard") == 0) then
+			return
+		end
 		if (self.player:getHandcardNum() == 2 and self.player:usedTimes("RendeCard") == 0) or
 			(self.player:getHandcardNum() == 1 and self.player:usedTimes("RendeCard") == 1) then
 			for _, enemy in ipairs(self.enemies) do
@@ -2301,18 +2355,19 @@ function SmartAI:getCardNeedPlayer(cards)
 				end
 			end
 		end
-		if self.player:getHandcardNum()> 2 or #cardtogive > 2 then
-			for _, friend in ipairs(self.friends_noself) do
-				if not self:needKongcheng(friend) or self.player:getHp() > 2 then
-					for _, hcard in ipairs(cardtogive) do
-						if #cardtogive > 1  then 
-							return hcard, friend
-						end
+		for _, friend in ipairs(self.friends_noself) do
+			if not self:needKongcheng(friend) or self.player:getHp() > 2 then
+				for _, hcard in ipairs(cardtogive) do
+					if #cardtogive > 1  then 
+						return hcard, friend
 					end
 				end
 			end
 		end
-		for _, friend in ipairs(self.friends_noself) do
+	end
+
+	for _, friend in ipairs(self.friends_noself) do
+		if not self:needKongcheng(friend) then
 			for _, hcard in ipairs(cardtogive) do
 				if self:getOverflow()>0	then
 					return hcard, friend
@@ -2333,15 +2388,6 @@ function SmartAI:getCardNeedPlayer(cards)
 		end
 	end
 
-	for _, friend in ipairs(self.friends_noself) do
-		if not self:needKongcheng(friend) then
-			for _, hcard in ipairs(cardtogive) do
-				if self:getOverflow()>0	then
-					return hcard, friend
-				end
-			end
-		end
-	end
 	
 	self:sortByUseValue(cards,true)
 	local name = self.player:objectName()
@@ -2470,7 +2516,7 @@ function SmartAI:askForYiji(card_ids)
 	if #self.friends > 1 and self:getOverflow() > 0 then
 		self:sort(self.friends, "handcard")
 		for _, afriend in ipairs(self.friends) do
-			if not self:needKongcheng(afriend) or afriend:hasSkill("manjuan") then
+			if not (self:needKongcheng(afriend) or afriend:hasSkill("manjuan")) then
 				for _, acard_id in ipairs(card_ids) do
 					if not sgs.Sanguosha:getCard(acard_id):inherits("Shit") then return afriend, acard_id end
 				end
@@ -2530,6 +2576,8 @@ end
 
 function SmartAI:askForSinglePeach(dying)
 	local card_str
+	local forbid = sgs.Sanguosha:cloneCard("peach", sgs.Card_NoSuit, 0)
+	if self.player:isLocked(forbid) or dying:isLocked(forbid) then return "." end
 	if self:isFriend(dying) then
 		if self:needDeath(dying) then return "." end
 		local buqu = dying:getPile("buqu")
@@ -2840,17 +2888,18 @@ local function prohibitUseDirectly(card, player)
 	local _, flist = sgs.getSkillLists(player)
 	for _, askill in ipairs(flist) do
 		local callback = sgs.ai_filterskill_filter[askill]
-		if type(callback) == "function" and callback(card) then return true end
+		local card_place = global_room:getCardPlace(card:getEffectiveId())
+		if type(callback) == "function" and callback(card, card_place, player) then return true end
 	end
 	return false
 end
 
-local function zeroCardView(class_name, player)
+local function cardsview(class_name, player)
 	local vlist = sgs.getSkillLists(player)
 	for _, askill in ipairs(vlist) do
-		local callback = sgs.ai_zerocardview[askill]
+		local callback = sgs.ai_cardsview[askill]
 		if type(callback) == "function" and callback(class_name, player) then
-			return callback(card, player)
+			return callback(class_name, player)
 		end
 	end
 end
@@ -2902,7 +2951,7 @@ function SmartAI:getCardId(class_name, player)
 	local cards = player:getCards("he")
 	cards = sgs.QList2Table(cards)
 	self:sortByUsePriority(cards)
-	local card_str = self:getGuhuoCard(class_name, player) or zeroCardView(class_name, player)
+	local card_str = self:getGuhuoCard(class_name, player) or cardsview(class_name, player)
 	if card_str then return card_str end
 
 	for _, card in ipairs(cards) do
@@ -3176,9 +3225,9 @@ function SmartAI:useBasicCard(card, use)
 end
 
 function SmartAI:aoeIsEffective(card, to)
-	if self.player == to then
-		return false
-	end
+	local players = self.room:getAlivePlayers()
+	players = sgs.QList2Table(players)
+
 	local armor = to:getArmor()
 	if armor and armor:inherits("Vine") then
 		return false
@@ -3186,7 +3235,11 @@ function SmartAI:aoeIsEffective(card, to)
 	if self.room:isProhibited(self.player, to, card) then
 		return false
 	end
-	if self.player:hasSkill("wuyan") or self.player:hasSkill("danlao") then
+	if to:isLocked(card) then
+		return false
+	end
+
+	if self.player:hasSkill("wuyan") then
 		return false
 	end
 	if card:inherits("SavageAssault") then
@@ -3194,38 +3247,26 @@ function SmartAI:aoeIsEffective(card, to)
 			return false
 		end
 	end
+
 	if (to:hasSkill("zhichi") and self.room:getTag("Zhichi"):toString() == to:objectName()) then
 		return false
 	end
-	if card:inherits("ArcheryAttack") then
-		if (to:hasSkill("leiji") and self:getCardsNum("Jink", to) > 0) or (self:isEquip("EightDiagram", to) and to:getHp() > 1) then
-			return false
-		end
+
+	if to:hasSkill("danlao") and #players > 2 then
+		return false
 	end
+
+	if to:getMark("@fog") > 0 then
+		return false
+	end
+
 	return true
 end
 
 function SmartAI:canAvoidAOE(card)
-	local armor = self.player:getArmor()
-	local players = self.room:getAlivePlayers()
-	players = sgs.QList2Table(players)
-	if armor and armor:inherits("Vine") then
-		return true
-	end
-	if card:isBlack() and self.player:hasSkill("weimu") then
-		return true
-	end
-	if self.player:hasSkill("wuyan") then
-		return true
-	end
-	if self.player:hasSkill("danlao") and #players > 2 then 
-		return true
-	end
-	if (self.player:hasSkill("zhichi") and self.room:getTag("Zhichi"):toString() == self.player:objectName()) then
-		return true
-	end
+	if not self:aoeIsEffective(card,self.player) then return true end
 	if card:inherits("SavageAssault") then
-		if self.player:hasSkill("huoshou") or self.player:hasSkill("juxiang") or self:getCardsNum("Slash") > 0 then
+		if self:getCardsNum("Slash") > 0 then
 			return true
 		end
 	end
@@ -3296,17 +3337,13 @@ function SmartAI:getAoeValueTo(card, to , from)
 	end
 
 	if to:hasSkill("longdan") then
-		value = value + 5
-	end
-
-	if to:hasSkill("danlao") then
-		value = value + 15
+		value = value + 10
 	end
 
 	if card:inherits("SavageAssault") then
 		sj_num = self:getCardsNum("Slash", to)
 		if to:hasSkill("juxiang") then
-			value = value + 20
+			value = value + 50
 		end
 	end
 	if card:inherits("ArcheryAttack") then
@@ -3319,7 +3356,7 @@ function SmartAI:getAoeValueTo(card, to , from)
 				value = value + 20
 			end
 			if to:hasSkill("jieming") then
-				value = value - self:getJiemingChaofeng(to) * 3
+				value = value + self:getJiemingChaofeng(to) * 3
 			end
 			if to:hasSkill("ganglie") or to:hasSkill("fankui") or to:hasSkill("enyuan") then
 				if not self:isFriend(from, to) then
@@ -3339,16 +3376,16 @@ function SmartAI:getAoeValueTo(card, to , from)
 				end
 			end
 			if to:hasSkill("qingguo") or self:isEquip("EightDiagram", to) then
-				value = value + 10
+				value = value + 20
 			end
 		end
 
 		if to:getHp() > 0 then
-			value = value - 24 / to:getHp() - 10
+			value = value - 20
 		end
 
 		if self:isFriend(from, to) then
-		if (to:isLord() or from:isLord()) and not (to:hasSkill("buqu") and to:getPile("buqu"):length() < 5) then
+			if (to:isLord() or from:isLord()) and not (to:hasSkill("buqu") and to:getPile("buqu"):length() < 5) then
 				if to:getHp() <= 1 and self:getCardsNum("Peach", from) == 0 and sj_num == 0 then
 					if sgs.evaluatePlayerRole(to) == "renegade" then
 						value = value - 50
@@ -3364,9 +3401,8 @@ function SmartAI:getAoeValueTo(card, to , from)
 			end
 		end
 	else
-		value = value + 10
+		value = value + 20
 	end
-
 	return value
 end
 
@@ -3383,6 +3419,11 @@ function SmartAI:getAoeValue(card, player)
 		bad = bad + self:getAoeValueTo(card, enemy, player)
 	end
 
+	for _, player in sgs.qlist(self.room:getAlivePlayers()) do
+		if self:cantbeHurt(player) and self:aoeIsEffective(card, player) then
+			bad = bad + 150
+		end
+	end
 	if player:hasSkill("jizhi") then
 		good = good + 40
 	end
@@ -3416,36 +3457,14 @@ function SmartAI:useTrickCard(card, use)
 	end
 	if card:inherits("AOE") then
 		if self.player:hasSkill("wuyan") then return end
-		if self.role == "renegade" and not self:isWeak(self.room:getLord()) then use.card = card return end
-		if self.role == "rebel" and sgs.turncount < 2 and card:inherits("ArcheryAttack") then return end
-		local good, bad = 0, 0
-		for _, friend in ipairs(self.friends_noself) do
-			if self:aoeIsEffective(card, friend) then
-				bad = bad + 20/(friend:getHp())+10
-				if friend:isLord() and (friend:getHp() < 3) then
-					return
-				end
-
-				if (friend:getHp() < 2) and (self.player:isLord()) then
-					return
-				end
-			end
-			good = good + self:getCardsNum("Peach")
-		end
-
-		for _, enemy in ipairs(self.enemies) do
-			if self:aoeIsEffective(card, enemy) then
-				good = good + 20/(enemy:getHp())+10
-
-				if enemy:isLord() then
-					good = good + 20/(enemy:getHp())
-				end
-			end
-			bad = bad + self:getCardsNum("Peach")
-		end
-
-		if good > bad or (self:hasSkills(sgs.need_kongcheng) and self.player:getHandcardNum() == 1) then
+		if self.role == "loyalist" and sgs.turncount < 2 and card:inherits("ArcheryAttack") then return end
+		if self.role == "rebel" and sgs.turncount < 2 and card:inherits("SavageAssault") then return end
+		local good = self:getAoeValue(card,self.player)
+		if good > 0 then
 			use.card = card
+		end
+		if self:hasSkills("jianxiong|luanji|manjuan",self.player) then
+			if good > -10 then use.card = card end
 		end
 	else
 		self:useCardByClassName(card, use)
@@ -3568,7 +3587,7 @@ function SmartAI:useEquipCard(card, use)
 				if not friend:getWeapon() then return end
 			end
 		end
-		if self.player:hasSkill("paoxiao") and card:inherits("Crossbow") then return end
+		if self:hasSkills("paoxiao|fuhun",self.player) and card:inherits("Crossbow") then return end
 		if self.player:getWeapon() and self.player:getWeapon():inherits("YitianSword") then use.card = card return end
 		if self:evaluateWeapon(card) > self:evaluateWeapon(self.player:getWeapon()) then
 			if (not use.to) and self.weaponUsed and (not self:hasSkills(sgs.lose_equip_skill)) then return end

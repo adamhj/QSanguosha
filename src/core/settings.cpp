@@ -16,9 +16,19 @@ Settings Config;
 static const qreal ViewWidth = 1280 * 0.8;
 static const qreal ViewHeight = 800 * 0.8;
 
+//consts
+const int Settings::S_CHOOSE_GENERAL_TIMEOUT = 15;
+const int Settings::S_GUANXING_TIMEOUT = 20;
+
 Settings::Settings()
-    :QSettings("config.ini", QSettings::IniFormat),
-    Rect(-ViewWidth/2, -ViewHeight/2, ViewWidth, ViewHeight)
+
+#ifdef Q_OS_WIN32
+    :QSettings("config.ini", QSettings::IniFormat)
+#else
+    :QSettings("QSanguosha.com", "QSanguosha")
+#endif
+
+     ,Rect(-ViewWidth/2, -ViewHeight/2, ViewWidth, ViewHeight)
 {
 }
 

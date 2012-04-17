@@ -48,6 +48,10 @@ void Slash::use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &t
 
 void Slash::onEffect(const CardEffectStruct &card_effect) const{
     Room *room = card_effect.from->getRoom();
+    if(card_effect.from->hasFlag("drank")){
+        this->setFlags("drank");
+        room->setPlayerFlag(card_effect.from, "-drank");
+    }
 
     SlashEffectStruct effect;
     effect.from = card_effect.from;
@@ -55,13 +59,12 @@ void Slash::onEffect(const CardEffectStruct &card_effect) const{
     effect.slash = this;
 
     effect.to = card_effect.to;
-    effect.drank = effect.from->hasFlag("drank");
+    effect.drank = this->hasFlag("drank");
 
-    room->setPlayerFlag(effect.from, "-drank");
     room->slashEffect(effect);
 }
 
-bool Slash::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const{
+bool Slash::targetsFeasible(const QList<const Player *> &targets, const Player *) const{
     return !targets.isEmpty();
 }
 
@@ -117,7 +120,7 @@ QString Peach::getSubtype() const{
     return "recover_card";
 }
 
-QString Peach::getEffectPath(bool is_male) const{
+QString Peach::getEffectPath(bool ) const{
     return Card::getEffectPath();
 }
 
@@ -204,7 +207,7 @@ public:
         events << SlashEffect;
     }
 
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const{
+    virtual bool trigger(TriggerEvent , ServerPlayer *, QVariant &data) const{
         SlashEffectStruct effect = data.value<SlashEffectStruct>();
         effect.to->addMark("qinggang");
 
@@ -271,7 +274,7 @@ public:
         return Slash::IsAvailable(player);
     }
 
-    virtual bool isEnabledAtResponse(const Player *player, const QString &pattern) const{
+    virtual bool isEnabledAtResponse(const Player *, const QString &pattern) const{
         return  pattern == "slash";
     }
 
@@ -353,7 +356,7 @@ public:
         SlashEffectStruct effect = data.value<SlashEffectStruct>();
 
         Room *room = player->getRoom();
-        CardStar card = room->askForCard(player, "@axe", "@axe:" + effect.to->objectName());
+        CardStar card = room->askForCard(player, "@axe", "@axe:" + effect.to->objectName(),data);
         if(card){
             QList<int> card_ids = card->getSubcards();
             foreach(int card_id, card_ids){
@@ -396,16 +399,17 @@ Halberd::Halberd(Suit suit, int number)
 class KylinBowSkill: public WeaponSkill{
 public:
     KylinBowSkill():WeaponSkill("kylin_bow"){
-        events << SlashHit;
+        events << DamageProceed;
     }
 
     virtual bool trigger(TriggerEvent , ServerPlayer *player, QVariant &data) const{
-        SlashEffectStruct effect = data.value<SlashEffectStruct>();
+        DamageStruct damage = data.value<DamageStruct>();
 
         QStringList horses;
-        if(effect.to->getDefensiveHorse())
+    if(damage.card && damage.card->inherits("Slash") && !damage.chain){
+        if(damage.to->getDefensiveHorse())
             horses << "dhorse";
-        if(effect.to->getOffensiveHorse())
+        if(damage.to->getOffensiveHorse())
             horses << "ohorse";
 
         if(horses.isEmpty())
@@ -422,9 +426,10 @@ public:
             horse_type = horses.first();
 
         if(horse_type == "dhorse")
-            room->throwCard(effect.to->getDefensiveHorse());
+            room->throwCard(damage.to->getDefensiveHorse());
         else if(horse_type == "ohorse")
-            room->throwCard(effect.to->getOffensiveHorse());
+            room->throwCard(damage.to->getOffensiveHorse());
+    }
 
         return false;
     }
@@ -642,7 +647,7 @@ bool Collateral::isAvailable(const Player *player) const{
     return false;
 }
 
-bool Collateral::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const{
+bool Collateral::targetsFeasible(const QList<const Player *> &targets, const Player *) const{
     return targets.length() == 2;
 }
 
@@ -942,27 +947,24 @@ void Lightning::takeEffect(ServerPlayer *target) const{
 
 // EX cards
 
-class IceSwordSkill: public TriggerSkill{
+class IceSwordSkill: public WeaponSkill{
 public:
-    IceSwordSkill():TriggerSkill("ice_sword"){
-        events << SlashHit;
-    }
-
-    virtual bool triggerable(const ServerPlayer *target) const{
-        return target->hasWeapon(objectName());
+    IceSwordSkill():WeaponSkill("ice_sword"){
+        events << DamageProceed;
     }
 
     virtual bool trigger(TriggerEvent , ServerPlayer *player, QVariant &data) const{
-        SlashEffectStruct effect = data.value<SlashEffectStruct>();
+        DamageStruct damage = data.value<DamageStruct>();
 
         Room *room = player->getRoom();
 
-        if(!effect.to->isNude() && player->askForSkillInvoke("ice_sword", data)){
-            int card_id = room->askForCardChosen(player, effect.to, "he", "ice_sword");
+        if(damage.card && damage.card->inherits("Slash") && !damage.to->isNude()
+                && !damage.chain && player->askForSkillInvoke("ice_sword", data)){
+            int card_id = room->askForCardChosen(player, damage.to, "he", "ice_sword");
             room->throwCard(card_id);
 
-            if(!effect.to->isNude()){
-                card_id = room->askForCardChosen(player, effect.to, "he", "ice_sword");
+            if(!damage.to->isNude()){
+                card_id = room->askForCardChosen(player, damage.to, "he", "ice_sword");
                 room->throwCard(card_id);
             }
 
@@ -986,7 +988,7 @@ public:
         events << SlashEffected;
     }
 
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const{
+    virtual bool trigger(TriggerEvent , ServerPlayer *player, QVariant &data) const{
         SlashEffectStruct effect = data.value<SlashEffectStruct>();
         if(effect.slash->isBlack()){
             LogMessage log;

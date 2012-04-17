@@ -802,16 +802,20 @@ public:
 class Xiangle: public TriggerSkill{
 public:
     Xiangle():TriggerSkill("xiangle"){
-        events << CardEffected;
+        events << SlashEffected << CardFinished << CardEffected;
 
         frequency = Compulsory;
     }
 
-    virtual bool trigger(TriggerEvent , ServerPlayer *player, QVariant &data) const{
-        CardEffectStruct effect = data.value<CardEffectStruct>();
+    virtual bool trigger(TriggerEvent event, ServerPlayer *liushan, QVariant &data) const{
+        Room *room = liushan->getRoom();
+        if(!liushan)
+            return false;
 
-        if(effect.card->inherits("Slash")){
-            Room *room = player->getRoom();
+        if(event == CardEffected){
+            CardEffectStruct effect = data.value<CardEffectStruct>();
+            if(!effect.card->inherits("Slash"))
+                return false;
 
             room->playSkillEffect(objectName());
 
@@ -822,8 +826,13 @@ public:
             log.arg = objectName();
             room->sendLog(log);
 
-            return !room->askForCard(effect.from, "BasicCard", "@xiangle-discard", data);
+            if(!room->askForCard(effect.from, "BasicCard", "@xiangle-discard", data))
+                room->setPlayerFlag(liushan, "xiangle_invoke");
         }
+        else if(event == CardFinished)
+            room->setPlayerFlag(liushan, "-xiangle_invoke");
+        else
+            return liushan->hasFlag("xiangle_invoke");
 
         return false;
     }
@@ -990,7 +999,7 @@ public:
         static QSet<QString> banned;
         if(banned.isEmpty()){
             banned << "zuoci" << "zuocif" << "guzhielai" << "dengshizai" << "caochong"
-                   << "jiangboyue" << "shenzhugeliang" << "shenlubu" << "zhugejin";
+                   << "jiangboyue" << "shenzhugeliang" << "shenlubu" << "huaxiong" << "zhugejin";
         }
 
         return (all - banned - huashen_set - room_set).toList();
@@ -1034,8 +1043,10 @@ public:
                     }
                 }
             }
-            skill_name = ai->askForChoice("huashen", skill_names.join("+"));
+            Q_ASSERT(skill_names.length() > 0);
+            skill_name = ai->askForChoice(skill_names.first(), skill_names.join("+"));
             const General* general = hash[skill_name];
+            Q_ASSERT(general != NULL);
             QString kingdom = general->getKingdom();
             if(zuoci->getKingdom() != kingdom){
                 if(kingdom == "god")

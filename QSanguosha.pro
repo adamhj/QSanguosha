@@ -4,11 +4,15 @@
 TARGET = QSanguosha
 QT += network sql declarative
 TEMPLATE = app
-CONFIG += warn_on audio qaxcontainer
+CONFIG += warn_on audio
 
 # If you want to enable joystick support, please uncomment the following line:
 # CONFIG += joystick
 # However, joystick is not supported under Mac OS X temporarily
+
+# If you want enable voice reading for chat content, uncomment the following line:
+# CONFIG += chatvoice
+# Also, this function can only enabled under Windows system as it make use of Microsoft TTS
 
 SOURCES += src/main.cpp \
 	src/client/aux-skills.cpp \
@@ -261,6 +265,11 @@ win32{
 	RC_FILE += resource/icon.rc
 }
 
+macx{
+    ICON = resource/icon/sgs.icns
+}
+
+
 LIBS += -L.
 
 CONFIG(audio){
@@ -278,6 +287,13 @@ CONFIG(joystick){
 	unix: LIBS += -lplibjs -lplibul
 }
 
+CONFIG(chatvoice){
+    win32{
+        CONFIG += qaxcontainer
+        DEFINES += CHAT_VOICE
+    }
+}
+
 TRANSLATIONS += sanguosha.ts
 
 OTHER_FILES += \
@@ -285,6 +301,3 @@ OTHER_FILES += \
 	acknowledgement/main.qml \
 	acknowledgement/list.png \
 	acknowledgement/back.png
-
-
-
