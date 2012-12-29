@@ -19,6 +19,14 @@ static const qreal ViewHeight = 800 * 0.8;
 //consts
 const int Settings::S_CHOOSE_GENERAL_TIMEOUT = 15;
 const int Settings::S_GUANXING_TIMEOUT = 20;
+const int Settings::S_SURRNDER_REQUEST_MIN_INTERVAL = 60;
+const int Settings::S_PROGRESS_BAR_UPDATE_INTERVAL = 200;
+const int Settings::S_SERVER_TIMEOUT_GRACIOUS_PERIOD = 1000;
+const int Settings::S_MOVE_CARD_ANIMATION_DURAION = 600;
+const int Settings::S_JUDGE_ANIMATION_DURATION = 2600;
+const int Settings::S_REGULAR_ANIMATION_SLOW_DURAION = 1500;
+const int Settings::S_JUDGE_SHORT_DELAY = 800;
+const int Settings::S_JUDGE_LONG_DELAY = 1500;
 
 Settings::Settings()
 
@@ -34,7 +42,7 @@ Settings::Settings()
 
 void Settings::init(){
     if(!qApp->arguments().contains("-server")){
-        QString font_path = value("DefaultFontPath", "font/font.ttf").toString();
+        QString font_path = value("DefaultFontPath", "font/simli.ttf").toString();
         int font_id = QFontDatabase::addApplicationFont(font_path);
         if(font_id!=-1){
             QString font_family = QFontDatabase::applicationFontFamilies(font_id).first();
@@ -61,10 +69,11 @@ void Settings::init(){
 
     if(!contains("BanPackages")){
         QStringList banlist;
-        banlist << "nostalgia" << "yitian" << "wisdom" << "test"
-                << "disaster" << "god" << "YJCM" << "yitian_cards"
+        banlist << "nostalgia" << "nostal_general" << "yitian" << "wisdom"
+                << "disaster" << "god" << "YJCM" /*<< "yitian_cards"*/ << "test"
                 << "sp" << "sp_cards" << "BGM" << "YJCM2012" << "Special3v3"
-                << "joy" << "joy_equip" ;
+                << "New3v3Card" /*<< "joy"*/ << "joy_equip" << "hegemony_card"
+                << "hegemony" << "ling";
 
         setValue("BanPackages", banlist);
     }
@@ -76,9 +85,10 @@ void Settings::init(){
     DisableChat = value("DisableChat", false).toBool();
     FreeAssignSelf = value("FreeAssignSelf", false).toBool();
     Enable2ndGeneral = value("Enable2ndGeneral", false).toBool();
-    EnableScene = value("EnableScene", false).toBool();	//changjing
-    EnableBasara= value("EnableBasara",false).toBool();
-    EnableHegemony = value("EnableHegemony",false).toBool();
+    EnableScene = value("EnableScene", false).toBool();    //changjing
+    EnableSame = value("EnableSame", false).toBool();
+    EnableBasara = value("EnableBasara", false).toBool();
+    EnableHegemony = value("EnableHegemony", false).toBool();
     MaxHpScheme = value("MaxHpScheme", 0).toInt();
     AnnounceIP = value("AnnounceIP", false).toBool();
     Address = value("Address", QString()).toString();
@@ -102,7 +112,6 @@ void Settings::init(){
     DetectorPort = value("DetectorPort", 9526u).toUInt();
     MaxCards = value("MaxCards", 15).toInt();
 
-    FitInView = value("FitInView", false).toBool();
     EnableHotKey = value("EnableHotKey", true).toBool();
     NeverNullifyMyTrick = value("NeverNullifyMyTrick", true).toBool();
     EnableMinimizeDialog = value("EnableMinimizeDialog", false).toBool();
@@ -116,15 +125,11 @@ void Settings::init(){
     BGMVolume = value("BGMVolume", 1.0f).toFloat();
     EffectVolume = value("EffectVolume", 1.0f).toFloat();
 
-    BackgroundBrush = value("BackgroundBrush", "backdrop/new-version.jpg").toString();
+    BackgroundImage = value("BackgroundImage", "backdrop/new-version.jpg").toString();
 
     QStringList roles_ban, kof_ban, basara_ban, hegemony_ban, pairs_ban;
 
-    roles_ban << "zhugejin";
-
-    kof_ban << "sunquan" << "huatuo" << "zhangliao" << "liubei" << "zhugejin";
-
-    basara_ban << "dongzhuo" << "zuoci" << "shenzhugeliang" << "shenlubu" << "zhanggongqi" << "zhugejin";
+    basara_ban << "dongzhuo" << "zuoci" << "shenzhugeliang" << "shenlvbu" << "zhanggongqi" << "zhugejin";
 
     hegemony_ban.append(basara_ban);
     hegemony_ban << "xiahoujuan" << "zhugejin";
@@ -136,64 +141,71 @@ void Settings::init(){
     pairs_ban << "shencaocao" << "dongzhuo" << "zuoci" << "zhoutai" << "+luboyan" << "liaohua"
               << "caocao+caochong" << "xushu+zhugeliang" << "simayi+caizhaoji" << "wisjiangwei+zhanggongqi"
                 << "zhenji+zhangjiao" << "zhenji+simayi" << "huanggai+yuanshao"
-                << "huanggai+wuguotai" << "dengshizai+caoren" << "dengshizai+shenlubu" << "dengshizai+bgm_diaochan"
+                << "huanggai+wuguotai" << "dengshizai+caoren" << "dengshizai+shenlvbu" << "dengshizai+bgm_diaochan"
                 << "luxun+liubei" << "luxun+wolong" << "luxun+yuji" << "luxun+daqiao"
                 << "huangyueying+wolong" << "huangyueying+yuanshao" << "huangyueying+ganning"
-                << "shuangxiong+sunce" << "shuangxiong+huanggai" << "shuangxiong+huangyueying"
+                << "yanliangwenchou+sunce" << "yanliangwenchou+huanggai" << "yanliangwenchou+huangyueying"
                 << "dengai+guojia" << "dengai+simayi" << "dengai+zhangjiao"
                 << "dengai+shenzhugeliang" << "dengai+shensimayi"
                 << "jiangboyue+huangyueying" << "jiangboyue+wolong" << "jiangboyue+yuanshao"
-                << "jiangboyue+shuangxiong" << "jiangboyue+ganning" << "jiangboyue+luxun" << "jiangboyue+zhanggongqi"
-                << "weiyan+huanggai" << "caoren+shenlubu" << "bgm_pangtong+huanggai"
+                << "jiangboyue+yanliangwenchou" << "jiangboyue+ganning" << "jiangboyue+luxun" << "jiangboyue+zhanggongqi"
+                << "weiyan+huanggai" << "caoren+shenlvbu" << "bgm_pangtong+huanggai"
                 << "fazheng+xiahoudun" << "luxun+zhanggongqi" << "sunquan+lingtong"
                 << "sunquan+sunshangxiang" << "wuguotai+guojia" << "wuguotai+xunyu"
-                << "caizhaoji+caoren" << "caizhaoji+dengshizai" << "yuanshu+zhanghe" << "caizhaoji+caozhi" << "caizhaoji+shenlubu"
-                << "yuanshu+lumeng" << "yuanshu+caochong" << "huatuo+guojia"
+                << "caizhaoji+caoren" << "caizhaoji+dengshizai" << "yuanshu+zhanghe" << "caizhaoji+caozhi" << "caizhaoji+shenlvbu"
+                << "yuanshu+lvmeng" << "yuanshu+caochong" << "huatuo+guojia"
                 << "huatuo+xunyu" << "huatuo+xiahoujuan" << "huatuo+zhanggongqi"
                 << "lukang+liubei" << "lukang+wolong" << "lukang+yuji" << "jiangboyue+lukang"
-                << "lukang+zhanggongqi" << "bgm_diaochan+caoren" << "bgm_diaochan+shenlubu"
-                << "bgm_diaochan+caizhaoji" << "caozhi+shenlubu" << "caoren+caozhi"
+                << "lukang+zhanggongqi" << "bgm_diaochan+caoren" << "bgm_diaochan+shenlvbu"
+                << "bgm_diaochan+caizhaoji" << "caozhi+shenlvbu" << "caoren+caozhi"
                 << "guanxingzhangbao+luxun" << "guanxingzhangbao+sunce" << "bgm_caoren+caoren"
-                << "bgm_caoren+caozhi" << "bgm_caoren+shenlubu" << "bgm_caoren+bgm_diaochan"
+                << "bgm_caoren+caozhi" << "bgm_caoren+shenlvbu" << "bgm_caoren+bgm_diaochan"
                 << "bgm_caoren+dengshizai" << "bgm_caoren+caizhaoji" << "bgm_pangtong+huanggai"
                 << "huanggai+guanxingzhangbao";
 
     QStringList banlist = value("Banlist/Roles").toStringList();
-    foreach(QString ban_general, roles_ban){
-        if(!banlist.contains(ban_general))
-            banlist << ban_general;
+    if(banlist.isEmpty()){
+        foreach(QString ban_general, roles_ban)
+                banlist << ban_general;
+
+        setValue("Banlist/Roles", banlist);
     }
-    setValue("Banlist/Roles", banlist);
 
     banlist = value("Banlist/1v1").toStringList();
-    foreach(QString ban_general, kof_ban){
-        if(!banlist.contains(ban_general))
-            banlist << ban_general;
+    if(banlist.isEmpty()){
+        foreach(QString ban_general, kof_ban)
+                banlist << ban_general;
+
+        setValue("Banlist/1v1", banlist);
     }
-    setValue("Banlist/1v1", banlist);
 
     banlist = value("Banlist/Basara").toStringList();
-    foreach(QString ban_general, basara_ban){
-        if(!banlist.contains(ban_general))
-                banlist << ban_general;
+    if(banlist.isEmpty()){
+        foreach(QString ban_general, basara_ban)
+                    banlist << ban_general;
+
+        setValue("Banlist/Basara", banlist);
     }
-    setValue("Banlist/Basara", banlist);
 
     banlist = value("Banlist/Hegemony").toStringList();
-    foreach(QString ban_general, hegemony_ban){
-        if(!banlist.contains(ban_general))
+    if(banlist.isEmpty()){
+        foreach(QString ban_general, hegemony_ban)
                 banlist << ban_general;
+        setValue("Banlist/Hegemony", banlist);
     }
-    setValue("Banlist/Hegemony", banlist);
 
     banlist = value("Banlist/Pairs").toStringList();
-    foreach(QString ban_general, pairs_ban){
-        if(!banlist.contains(ban_general))
-                banlist << ban_general;
+    if(banlist.isEmpty()){
+        foreach(QString ban_general, pairs_ban)
+                    banlist << ban_general;
+
+        setValue("Banlist/Pairs", banlist);
     }
-    setValue("Banlist/Pairs", banlist);
 
     QStringList forbid_packages;
-    forbid_packages << "Special3v3";
+    forbid_packages << "New3v3Card";
     setValue("ForbidPackages", forbid_packages.join("+"));
+
+//ui
+    setValue("UI/ExpandDashboard", value("UI/ExpandDashboard", true).toBool());
 }

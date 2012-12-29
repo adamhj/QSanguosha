@@ -51,7 +51,7 @@ sgs.ai_skill_playerchosen.wuhun = function(self, targets)
 end
 
 function sgs.ai_slash_prohibit.wuhun(self, to)
-    if self.player:hasSkill("qianxi") then return false end
+    if self:hasSkills("jueqing|qianxi") then return false end
 	local maxfriendmark = 0
 	local maxenemymark = 0
 	for _, friend in ipairs(self.friends) do
@@ -64,7 +64,7 @@ function sgs.ai_slash_prohibit.wuhun(self, to)
 	end
 	if self:isEnemy(to) and not (to:isLord() and self.player:getRole() == "rebel") then
 		if (maxfriendmark+2 > maxenemymark) and not (#self.enemies==1 and #self.friends + #self.enemies == self.room:alivePlayerCount()) then 
-			if not (self.player:getMark("@nightmare") == maxfriendmark and self:isWeak() and not self.player:isLord() and not self.role == "renegade") then
+			if not (self.player:getMark("@nightmare") == maxfriendmark and  self.role == "loyalist") then
 				return true
 			end
 		end
@@ -72,8 +72,10 @@ function sgs.ai_slash_prohibit.wuhun(self, to)
 end
 
 function SmartAI:cantbeHurt(player)
+	if self.player:hasSkill("jueqing") then return false end
 	local maxfriendmark = 0
 	local maxenemymark = 0
+	local dyingfriend = 0
 	if player:hasSkill("wuhun") then
 		for _, friend in ipairs(self.friends) do
 			local friendmark = friend:getMark("@nightmare")
@@ -85,20 +87,29 @@ function SmartAI:cantbeHurt(player)
 		end
 		if self:isEnemy(player) and not (player:isLord() and self.player:getRole() == "rebel") then
 			if (maxfriendmark+2 > maxenemymark) and not (#self.enemies==1 and #self.friends + #self.enemies == self.room:alivePlayerCount()) then 
-				if not (self.player:getMark("@nightmare") == maxfriendmark and self:isWeak() and not self.player:isLord() and not self.role == "renegade") then
+				if not (self.player:getMark("@nightmare") == maxfriendmark and self.role == "loyalist") then
 					return true
 				end
 			end
 		elseif maxfriendmark+1 > maxenemymark then 
 			return true
 		end
-	elseif player:hasSkill("beige") then
+	elseif player:hasSkill("duanchang") then
 		if player:getHp() < 2 then
 			if self:isFriend(player) then
 				return true
 			elseif #self.enemies > 2 then
 				return true
 			end
+		end
+	elseif player:hasSkill("tianxiang") then
+		for _, friend in ipairs(self.friends) do
+			if friend:getHp() < 2 and self:getCardsNum("Peach") == 0 then
+				dyingfriend = dyingfriend + 1
+			end
+		end
+		if dyingfriend > 0 and player:getHandcardNum() > 0 then
+			return true
 		end
 	end
 	return false
@@ -121,7 +132,12 @@ function SmartAI:needDeath(player)
 			elseif maxenemymark == 0 then return false
 			else return true end
 		end
-	elseif (player:hasSkill("niepan") and player:getMark("@nirvana") > 0 and player:getCards("e"):length() < 2) or 
+	end
+	return false
+end
+
+function SmartAI:doNotSave(player)
+	if (player:hasSkill("niepan") and player:getMark("@nirvana") > 0 and player:getCards("e"):length() < 2) or 
 		(player:hasSkill("fuli") and player:getMark("@laoji") > 0 and player:getCards("e"):length() < 2) then
 		return true
 	end
@@ -148,7 +164,7 @@ sgs.ai_skill_use_func.GongxinCard=function(card,use,self)
 	self:sort(self.enemies,"handcard")
 
 	for index = #self.enemies, 1, -1 do
-		if not self.enemies[index]:isKongcheng() then
+		if not self.enemies[index]:isKongcheng() and self:objectiveLevel(self.enemies[index]) > 0 then
 			use.card = card
 			if use.to then
 				use.to:append(self.enemies[index])
@@ -158,6 +174,71 @@ sgs.ai_skill_use_func.GongxinCard=function(card,use,self)
 	end
 end
 
+-- for some reason unknown, this doesn't work
+--[[sgs.ai_skill_cardchosen.gongxin = function(self, who, flags)
+global_room:writeToConsole("we are in !!!!!!!!!")
+	local cards = self.player:getHandcards()	
+	cards=sgs.QList2Table(cards)
+    local has_jink
+	local has_peach
+	local has_null
+    local heartnum = 0
+	local hasindul = 0
+	local nextplayer = self.player:getNextAlive()
+
+	local judges = who:getJudgingArea()
+	if not judges:isEmpty() then
+		for _, judge in sgs.qlist(judges) do
+			card = sgs.Sanguosha:getCard(judge:getEffectiveId())
+			if card:isKindOf("Indulgence") then
+				hasindul = 1
+				break
+			end
+		end
+	end
+	for _, card in ipairs(cards) do
+		if card:getSuit() == sgs.Card_Heart or (card:getSuit() == sgs.Card_Spade and who:hasSkill("hongyan")) then
+	        has_null = card
+            if card:isKindOf("Jink") then
+                has_jink = card
+				global_room:writeToConsole("has jink !!!!!!!!!")
+            elseif card:isKindOf("Peach") then
+                has_peach = card
+				global_room:writeToConsole("has peach !!!!!!!!!")
+			end
+            heartnum = heartnum + 1
+		end
+	end	
+	global_room:writeToConsole("heartnum = " .. heartnum)
+	if self:isFriend(nextplayer) and has_peach then
+		self.room:setPlayerFlag(self.player, "gongxin_put")
+		global_room:writeToConsole("help friend  !!!!!!!!!")
+		return has_peach:getEffectiveId()
+	elseif who:objectName() == nextplayer:objectName() and has_jink and hasindul < 1 then
+		self.room:setPlayerFlag(self.player, "gongxin_put")
+		global_room:writeToConsole("jink cycle  !!!!!!!!!")
+		return has_jink:getEffectiveId()
+	elseif self:isFriend(nextplayer) and hasindul > 0 and has_null then
+		self.room:setPlayerFlag(self.player, "gongxin_put")
+		global_room:writeToConsole("indul ? OK  !!!!!!!!!")
+		return has_null:getEffectiveId()
+	elseif has_null then
+		global_room:writeToConsole("Normal discard  !!!!!!!!!")
+		return has_null:getEffectiveId()
+	end
+	return "."
+end
+
+sgs.ai_skill_choice.gongxin = function(self, choices)
+	if self.player:hasFlag("gongxin_put") then
+		self.room:setPlayerFlag(self.player, "-gongxin_put")
+		return "put"
+	end	
+	return "discard"
+end]]
+
+sgs.ai_use_value.GongxinCard = 8.5
+sgs.ai_use_priority.GongxinCard = 8.8
 sgs.ai_card_intention.GongxinCard = 80
 
 sgs.ai_skill_invoke.qinyin = function(self, data)
@@ -178,10 +259,10 @@ sgs.ai_skill_choice.qinyin = function(self, choices)
 	end
 end
 
-local smallyeyan_skill={}
-smallyeyan_skill.name = "smallyeyan"
-table.insert(sgs.ai_skills, smallyeyan_skill)
-smallyeyan_skill.getTurnUseCard=function(self)
+local yeyan_skill={}
+yeyan_skill.name = "yeyan"
+table.insert(sgs.ai_skills, yeyan_skill)
+yeyan_skill.getTurnUseCard=function(self)
 	if self.player:getMark("@flame") == 0 then return end
 	if self.player:getHandcardNum() >= 4 then
 		local spade, club, heart, diamond
@@ -196,17 +277,15 @@ smallyeyan_skill.getTurnUseCard=function(self)
 			self:sort(self.enemies, "hp")
 			local target_num = 0
 			for _, enemy in ipairs(self.enemies) do
-				if (enemy:getArmor() and enemy:getArmor():objectName() == "vine") or (enemy:isChained() and self:isGoodChainTarget(enemy)) then
+				if (enemy:getArmor() and enemy:getArmor():objectName() == "Vine") or (enemy:isChained() and self:isGoodChainTarget(enemy)) then
 					target_num = target_num + 1
 				elseif enemy:getHp() <= 3 then
 					target_num = target_num + 1
 				end
 			end
 
-			if target_num == 1 then
+			if target_num >= 1 then
 				return sgs.Card_Parse("@GreatYeyanCard=.")
-			elseif target_num > 1 then
-				return sgs.Card_Parse("@MediumYeyanCard=.")
 			end
 		end
 	end
@@ -255,43 +334,67 @@ sgs.ai_skill_use_func.GreatYeyanCard=function(card,use,self)
 
 	self:sort(self.enemies, "hp")
 	for _, enemy in ipairs(self.enemies) do
-		if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-			if enemy:isChained() and self:isGoodChainTarget(enemy) then
-				if enemy:getArmor() and enemy:getArmor():objectName() == "vine" then
+		if not (enemy:getArmor() and enemy:getArmor():objectName() == "SilverLion") and
+			not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) and
+			self:objectiveLevel(enemy) > 3 and enemy:getMark("@fog") < 1 then
+				if enemy:isChained() and self:isGoodChainTarget(enemy) then
+					if enemy:getArmor() and enemy:getArmor():objectName() == "Vine" then
+						use.card = greatyeyan
+						if use.to then 
+							use.to:append(enemy)
+							use.to:append(enemy)
+							use.to:append(enemy)	
+						end
+						return
+					end
+				end
+		end
+	end
+	for _, enemy in ipairs(self.enemies) do
+		if not (enemy:getArmor() and enemy:getArmor():objectName() == "SilverLion") and
+			not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) 
+			and self:objectiveLevel(enemy) > 3 and enemy:getMark("@fog") < 1 then
+				if enemy:isChained() and self:isGoodChainTarget(enemy) then
 					use.card = greatyeyan
-					if use.to then use.to:append(enemy)	end
+					if use.to then 
+						use.to:append(enemy)
+						use.to:append(enemy)
+						use.to:append(enemy)	
+					end
 					return
 				end
-			end
 		end
 	end
 	for _, enemy in ipairs(self.enemies) do
-		if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-			if enemy:isChained() and self:isGoodChainTarget(enemy) then
-				use.card = greatyeyan
-				if use.to then use.to:append(enemy)	end
-				return
-			end
+		if not (enemy:getArmor() and enemy:getArmor():objectName() == "SilverLion") and
+			not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) 
+			and self:objectiveLevel(enemy) > 3 and enemy:getMark("@fog") < 1 then
+				if not enemy:isChained() then
+					if enemy:getArmor() and enemy:getArmor():objectName() == "Vine" then
+						use.card = greatyeyan
+						if use.to then 
+							use.to:append(enemy)
+							use.to:append(enemy)
+							use.to:append(enemy)	
+						end
+						return
+					end
+				end
 		end
 	end
 	for _, enemy in ipairs(self.enemies) do
-		if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-			if not enemy:isChained() then
-				if enemy:getArmor() and enemy:getArmor():objectName() == "vine" then
+		if not (enemy:getArmor() and enemy:getArmor():objectName() == "SilverLion") and
+			not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) 
+			and self:objectiveLevel(enemy) > 3 and enemy:getMark("@fog") < 1 then
+				if not enemy:isChained() then
 					use.card = greatyeyan
-					if use.to then use.to:append(enemy)	end
+					if use.to then 
+						use.to:append(enemy)
+						use.to:append(enemy)
+						use.to:append(enemy)	
+					end
 					return
 				end
-			end
-		end
-	end
-	for _, enemy in ipairs(self.enemies) do
-		if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-			if not enemy:isChained() then
-				use.card = greatyeyan
-				if use.to then use.to:append(enemy)	end
-				return
-			end
 		end
 	end
 end
@@ -301,95 +404,13 @@ sgs.ai_use_priority.GreatYeyanCard = 9
 
 sgs.ai_card_intention.GreatYeyanCard = 200
 
-sgs.ai_skill_use_func.MediumYeyanCard=function(card,use,self)
-	local cards = self.player:getHandcards()
-	cards = sgs.QList2Table(cards)
-	self:sortByUseValue(cards, true)
-	local need_cards = {}
-	local to = {}
-	local spade, club, heart, diamond
-	for _, card in ipairs(cards) do
-		if card:getSuit() == sgs.Card_Spade and not spade then spade = true table.insert(need_cards, card:getId())
-		elseif card:getSuit() == sgs.Card_Club and not club then club = true table.insert(need_cards, card:getId())
-		elseif card:getSuit() == sgs.Card_Heart and not heart then heart = true table.insert(need_cards, card:getId())
-		elseif card:getSuit() == sgs.Card_Diamond and not diamond then diamond = true table.insert(need_cards, card:getId())
-		end
-	end
-	if #need_cards < 4 then return end
-
-	self:sort(self.enemies, "hp")
-	for _, enemy in ipairs(self.enemies) do
-		if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-			if enemy:isChained() and self:isGoodChainTarget(enemy) then
-				if enemy:getArmor() and enemy:getArmor():objectName() == "vine" then
-					if use.to then 
-						table.insert(to, enemy) 
-						if #to == 2 then break end
-					end
-				end
-			end
-		end
-	end
-	if #to<2 then
-		for _, enemy in ipairs(self.enemies) do
-			if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-				if enemy:isChained() and self:isGoodChainTarget(enemy) then
-					if use.to then 
-						table.insert(to, enemy) 
-						if #to == 2 then break end 
-					end
-				end
-			end
-		end
-	end	
-	if #to<2 then
-		for _, enemy in ipairs(self.enemies) do
-			if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-				if not enemy:isChained() then
-					if enemy:getArmor() and enemy:getArmor():objectName() == "vine" then
-						if use.to then 
-							table.insert(to, enemy) 
-							if #to == 2 then break end
-						end
-					end
-				end
-			end
-		end
-	end
-	if #to<2 then
-		for _, enemy in ipairs(self.enemies) do
-			if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-				if not enemy:isChained() then
-					if use.to then 
-						table.insert(to, enemy) 
-						if #to == 2 then break end
-					end
-				end
-			end
-		end
-	end
-	if #to == 2 then
-		use.card = sgs.Card_Parse("@MediumYeyanCard=" .. table.concat(need_cards, "+"))
-		if use.to then
-			for _, ato in ipairs(to) do
-				use.to:append(ato)
-			end
-		end
-	end
-end
-
-sgs.ai_use_value.MediumYeyanCard = 5.6
-sgs.ai_use_priority.MediumYeyanCard = 6
-
-sgs.ai_card_intention.MediumYeyanCard = 200
-
 sgs.ai_skill_use_func.SmallYeyanCard=function(card,use,self)
 	local num = 0
 	self:sort(self.enemies, "hp")
 	for _, enemy in ipairs(self.enemies) do
-		if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
+		if not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) and enemy:getMark("@fog") < 1 then
 			if enemy:isChained() and self:isGoodChainTarget(enemy) then
-				if enemy:getArmor() and enemy:getArmor():objectName() == "vine" then
+				if enemy:getArmor() and enemy:getArmor():objectName() == "Vine" then
 					if use.to then use.to:append(enemy) end
 					num = num + 1
 					if num >=3 then break end
@@ -399,8 +420,8 @@ sgs.ai_skill_use_func.SmallYeyanCard=function(card,use,self)
 	end
 	if num < 3 then
 		for _, enemy in ipairs(self.enemies) do
-			if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-				if enemy:isChained() and self:isGoodChainTarget(enemy) then
+			if not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) and enemy:getMark("@fog") < 1 then
+				if enemy:isChained() and self:isGoodChainTarget(enemy) and not (enemy:getArmor() and enemy:getArmor():objectName() == "Vine") then
 					if use.to then use.to:append(enemy) end
 					num = num + 1
 					if num >=3 then break end
@@ -410,9 +431,9 @@ sgs.ai_skill_use_func.SmallYeyanCard=function(card,use,self)
 	end	
 	if num < 3 then
 		for _, enemy in ipairs(self.enemies) do
-			if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
+			if not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) and enemy:getMark("@fog") < 1 then
 				if not enemy:isChained() then
-					if enemy:getArmor() and enemy:getArmor():objectName() == "vine" then
+					if enemy:getArmor() and enemy:getArmor():objectName() == "Vine" then
 						if use.to then use.to:append(enemy) end
 						num = num + 1
 						if num >=3 then break end
@@ -423,8 +444,8 @@ sgs.ai_skill_use_func.SmallYeyanCard=function(card,use,self)
 	end
 	if num < 3 then
 		for _, enemy in ipairs(self.enemies) do
-			if not (enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion") then
-				if not enemy:isChained() then
+			if not (enemy:hasSkill("tianxiang") and enemy:getHandcardNum() > 0) and enemy:getMark("@fog") < 1 then
+				if not enemy:isChained() and not (enemy:getArmor() and enemy:getArmor():objectName() == "Vine") then
 					if use.to then use.to:append(enemy) end
 					num = num + 1
 					if num >=3 then break end
@@ -469,7 +490,7 @@ sgs.ai_skill_use["@@kuangfeng"] = function(self,prompt)
 			is_chained = is_chained + 1
 			table.insert(target, enemy)
 		end
-		if enemy:getArmor() and enemy:getArmor():objectName() == "vine" then
+		if enemy:getArmor() and enemy:getArmor():objectName() == "Vine" then
 			table.insert(target, 1, enemy)
 			break
 		end
@@ -478,7 +499,7 @@ sgs.ai_skill_use["@@kuangfeng"] = function(self,prompt)
 	if friendly_fire and is_chained > 1 then usecard=true end
 	self:sort(self.friends, "hp")
 	if target[1] and not self:isWeak(self.friends[1]) then
-		if target[1]:getArmor() and target[1]:getArmor():objectName() == "vine" and friendly_fire then usecard=true end
+		if target[1]:getArmor() and target[1]:getArmor():objectName() == "Vine" and friendly_fire then usecard=true end
 	end
 	if usecard then
 		if not target[1] then table.insert(target,self.enemies[1]) end
@@ -501,15 +522,16 @@ sgs.ai_skill_use["@@dawu"] = function(self, prompt)
 			if self:isWeak(friend) and not friend:hasSkill("buqu") then table.insert(targets, friend:objectName()) break end
 		end	
 	end
-	if self.player:getMark("@star") > #targets and self:isWeak() then table.insert(targets, self.player:objectName()) end
+	if self.player:getPile("stars"):length() > #targets and self:isWeak() then table.insert(targets, self.player:objectName()) end
 	if #targets > 0 then return "@DawuCard=.->" .. table.concat(targets, "+") end
 	return "."
 end
 
 sgs.ai_card_intention.DawuCard = -70
 
-sgs.ai_skill_invoke.guixin = function(self,data)
-	return self.room:alivePlayerCount() > 2
+sgs.ai_skill_invoke.guixin = function(self, data)
+	local damage = data:toDamage()
+	return self.room:alivePlayerCount() > 2 or damage.damage > 1
 end
 
 sgs.ai_chaofeng.shencaocao = -6
@@ -530,14 +552,15 @@ wuqian_skill.getTurnUseCard=function(self)
 	self:sort(self.enemies, "hp")
 	local has_enemy
 	for _, enemy in ipairs(self.enemies) do
-		if enemy:getHp() <= 2 and self:getCardsNum("Jink", enemy) < 2 and self.player:inMyAttackRange(enemy) then has_enemy = enemy break end
+		if enemy:getHp() <= 2 and self:getCardsNum("Jink", enemy) < 2 and self.player:distanceTo(enemy) <= self.player:getAttackRange() then 
+			has_enemy = enemy break end
 	end
 
 	if has_enemy and self:getCardsNum("Slash") > 0 then
 		for _, card in sgs.qlist(self.player:getHandcards()) do
-			if card:inherits("Slash") and self:slashIsEffective(card, has_enemy) and self.player:canSlash(has_enemy) and
+			if card:isKindOf("Slash") and self:slashIsEffective(card, has_enemy) and self.player:canSlash(has_enemy, card) and
 				(self:getCardsNum("Analeptic") > 0 or has_enemy:getHp() <= 1) and card:isAvailable(self.player) then return sgs.Card_Parse(card_str)
-			elseif card:inherits("Duel") then return sgs.Card_Parse(card_str)
+			elseif card:isKindOf("Duel") then return sgs.Card_Parse(card_str)
 			end
 		end
 	end
@@ -546,7 +569,7 @@ end
 sgs.ai_skill_use_func.WuqianCard=function(card,use,self)
 	self:sort(self.enemies,"hp")
 	for _, enemy in ipairs(self.enemies) do
-		if enemy:getHp() <= 2 and self:getCardsNum("Jink", enemy) < 2 and self.player:inMyAttackRange(enemy) then
+		if enemy:getHp() <= 2 and self:getCardsNum("Jink", enemy) < 2 and self.player:distanceTo(enemy) <= self.player:getAttackRange() then
 			if use.to then
 				use.to:append(enemy)
 			end
@@ -635,9 +658,9 @@ sgs.ai_skill_invoke.jilve=function(self,data)
 		if #self.enemies == 0 then return false end
 		return use and self:askForUseCard("@@fangzhu","@fangzhu")~="."
 	elseif event == sgs.CardUsed or event == sgs.CardResponsed then
-		local card = data:toCard()
+		local card = data:toResponsed().m_card
 		card = card or data:toCardUse().card
-		return use or card:inherits("ExNihilo")
+		return use or card:isKindOf("ExNihilo")
 	else
 		assert(false)
 	end

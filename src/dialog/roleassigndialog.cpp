@@ -3,13 +3,15 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QMessageBox>
-
+#include <qlist.h>
 #include "general.h"
 #include "player.h"
 #include "client.h"
 #include "engine.h"
 #include "roomscene.h"
 #include "settings.h"
+
+using namespace QSanProtocol;
 
 RoleAssignDialog::RoleAssignDialog(QWidget *parent)
     :QDialog(parent)
@@ -50,11 +52,11 @@ RoleAssignDialog::RoleAssignDialog(QWidget *parent)
 
     QVBoxLayout *vlayout = new QVBoxLayout;
 
-    role_combobox = new QComboBox;
-    role_combobox->addItem(tr("Lord"), "lord");
-    role_combobox->addItem(tr("Loyalist"), "loyalist");
-    role_combobox->addItem(tr("Renegade"), "renegade");
-    role_combobox->addItem(tr("Rebel"), "rebel");
+    role_ComboBox = new QComboBox;
+    role_ComboBox->addItem(tr("Lord"), "lord");
+    role_ComboBox->addItem(tr("Loyalist"), "loyalist");
+    role_ComboBox->addItem(tr("Renegade"), "renegade");
+    role_ComboBox->addItem(tr("Rebel"), "rebel");
 
     QPushButton *moveUpButton = new QPushButton(tr("Move up"));
     QPushButton *moveDownButton = new QPushButton(tr("Move down"));
@@ -66,7 +68,7 @@ RoleAssignDialog::RoleAssignDialog(QWidget *parent)
         moveDownButton->setEnabled(false);
     }
 
-    vlayout->addWidget(role_combobox);
+    vlayout->addWidget(role_ComboBox);
     vlayout->addWidget(moveUpButton);
     vlayout->addWidget(moveDownButton);
     vlayout->addStretch();
@@ -80,7 +82,7 @@ RoleAssignDialog::RoleAssignDialog(QWidget *parent)
     mainlayout->addLayout(layout);
     setLayout(mainlayout);
 
-    connect(role_combobox, SIGNAL(currentIndexChanged(int)), this, SLOT(updateRole(int)));
+    connect(role_ComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(updateRole(int)));
     connect(list, SIGNAL(currentItemChanged(QListWidgetItem*,QListWidgetItem*)),
             this, SLOT(updateRole(QListWidgetItem*)));
     connect(moveUpButton, SIGNAL(clicked()), this, SLOT(moveUp()));
@@ -93,17 +95,19 @@ void RoleAssignDialog::accept(){
     QStringList role_list = Sanguosha->getRoleList(ServerInfo.GameMode);
     QStringList real_list;
 
+    QList<QString> names;
+    QList<QString> roles;
     if(Config.FreeAssignSelf){
         QString name = list->item(0)->data(Qt::UserRole).toString();
         QString role = role_mapping.value(name);
-
-        ClientInstance->request("assignRoles " + QString("%1:%2").arg(name).arg(role));
+        names.push_back(name);
+        roles.push_back(role);
+        ClientInstance->onPlayerAssignRole(names, roles);
         QDialog::accept();
         return;
     }
-
-    QStringList assignments;
-    for(int i=0; i<list->count(); i++){
+    
+    for(int i = 0; i < list->count(); i++){
         QString name = list->item(i)->data(Qt::UserRole).toString();
         QString role = role_mapping.value(name);
 
@@ -113,14 +117,15 @@ void RoleAssignDialog::accept(){
         }
 
         real_list << role;
-        assignments << QString("%1:%2").arg(name).arg(role);
+        names.push_back(name);
+        roles.push_back(role);
     }
 
     role_list.sort();
     real_list.sort();
 
     if(role_list == real_list){
-        ClientInstance->request("assignRoles " + assignments.join("+"));
+        ClientInstance->onPlayerAssignRole(names, roles);
         QDialog::accept();
     }else{
         QMessageBox::warning(this, tr("Warning"),
@@ -129,13 +134,13 @@ void RoleAssignDialog::accept(){
 }
 
 void RoleAssignDialog::reject(){
-    ClientInstance->request("assignRoles .");
+    ClientInstance->replyToServer(S_COMMAND_CHOOSE_ROLE, Json::Value::null);
     QDialog::reject();
 }
 
 void RoleAssignDialog::updateRole(int index){
     QString name = list->currentItem()->data(Qt::UserRole).toString();
-    QString role = role_combobox->itemData(index).toString();
+    QString role = role_ComboBox->itemData(index).toString();
     ClientPlayer *player = ClientInstance->getPlayer(name);
     QString text = QString("%1[%2]").arg(player->screenName()).arg(Sanguosha->translate(role));
     list->currentItem()->setText(text);
@@ -154,7 +159,7 @@ void RoleAssignDialog::updateRole(QListWidgetItem *current){
     QString name = current->data(Qt::UserRole).toString();
     QString role = role_mapping.value(name);
     int index = mapping.value(role);
-    role_combobox->setCurrentIndex(index);
+    role_ComboBox->setCurrentIndex(index);
 }
 
 void RoleAssignDialog::moveUp(){

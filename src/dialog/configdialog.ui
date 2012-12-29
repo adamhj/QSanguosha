@@ -149,7 +149,7 @@
         <x>10</x>
         <y>130</y>
         <width>411</width>
-        <height>21</height>
+        <height>24</height>
        </rect>
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout_5">
@@ -184,7 +184,7 @@
         <x>10</x>
         <y>160</y>
         <width>411</width>
-        <height>21</height>
+        <height>24</height>
        </rect>
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout_6">
@@ -290,36 +290,10 @@
        </item>
       </layout>
      </widget>
-     <widget class="QCheckBox" name="fitInViewCheckBox">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>100</y>
-        <width>151</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Fit in view</string>
-      </property>
-     </widget>
-     <widget class="QCheckBox" name="circularViewCheckBox">
-      <property name="geometry">
-       <rect>
-        <x>160</x>
-        <y>100</y>
-        <width>101</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Circular view</string>
-      </property>
-     </widget>
      <widget class="QCheckBox" name="noIndicatorCheckBox">
       <property name="geometry">
        <rect>
-        <x>330</x>
+        <x>10</x>
         <y>100</y>
         <width>95</width>
         <height>16</height>
@@ -519,6 +493,25 @@
      </property>
      <property name="text">
       <string>Minimize the dialog when server runs</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="enableAutoTargetCheckBox">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>120</y>
+       <width>251</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Help me to choose targets of one card</string>
      </property>
      <property name="checked">
       <bool>true</bool>

@@ -3,8 +3,9 @@
 
 class General;
 
+#include "TimedProgressBar.h"
+
 #include <QDialog>
-#include <QProgressBar>
 #include <QGroupBox>
 #include <QButtonGroup>
 
@@ -15,6 +16,7 @@ class OptionButton : public QToolButton
     Q_OBJECT
 public:
     explicit OptionButton(const QString icon_path, const QString &caption = "", QWidget *parent = 0);
+    virtual QSize sizeHint() const { return iconSize(); }
 
 protected:
     virtual void mouseDoubleClickEvent(QMouseEvent *);
@@ -31,16 +33,17 @@ class ChooseGeneralDialog : public QDialog
 public:
     explicit ChooseGeneralDialog(const QStringList &general_names,
                                  QWidget *parent);
+public slots:
+    void done(int);
 
 protected:
-    virtual void timerEvent(QTimerEvent *);
+    QDialog *m_freeChooseDialog;
 
 private:
-    QProgressBar *progress_bar;
-    QDialog *free_chooser;
+    QSanCommandProgressBar *progress_bar;    
 
 private slots:
-    void freeChoose();
+    void freeChoose();   
 };
 
 class FreeChooseDialog: public QDialog{

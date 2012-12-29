@@ -10,8 +10,29 @@ ServerInfoStruct ServerInfo;
 #include <QListWidget>
 #include <QCheckBox>
 
+time_t ServerInfoStruct::getCommandTimeout(QSanProtocol::CommandType command, QSanProtocol::ProcessInstanceType instance)
+{
+    time_t timeOut;
+    if (OperationTimeout == 0) return 0;
+    else if (command == QSanProtocol::S_COMMAND_CHOOSE_GENERAL)
+    {
+        timeOut = Config.S_CHOOSE_GENERAL_TIMEOUT * 1000;
+    }
+    else if (command == QSanProtocol::S_COMMAND_SKILL_GUANXING)
+    {
+        timeOut = Config.S_GUANXING_TIMEOUT * 1000;
+    }
+    else
+    {
+        timeOut = OperationTimeout * 1000;
+    }
+    if (instance == QSanProtocol::S_SERVER_INSTANCE)
+        timeOut += Config.S_SERVER_TIMEOUT_GRACIOUS_PERIOD;
+    return timeOut;
+}
+
 bool ServerInfoStruct::parse(const QString &str){
-    QRegExp rx("(.*):(@?\\w+):(\\d+):([+\\w]*):([FSCBHAM12]*)");
+    QRegExp rx("(.*):(@?\\w+):(\\d+):([+\\w]*):([FSCTBHAM1234]*)");
     if(!rx.exactMatch(str)){
         // older version, just take the player count
         int count = str.split(":").at(1).toInt();
@@ -46,6 +67,7 @@ bool ServerInfoStruct::parse(const QString &str){
     FreeChoose = flags.contains("F");
     Enable2ndGeneral = flags.contains("S");
     EnableScene = flags.contains("C");
+    EnableSame = flags.contains("T");
     EnableBasara= flags.contains("B");
     EnableHegemony = flags.contains("H");
     EnableAI = flags.contains("A");
@@ -55,6 +77,10 @@ bool ServerInfoStruct::parse(const QString &str){
         MaxHPScheme = 1;
     else if(flags.contains("2"))
         MaxHPScheme = 2;
+    else if(flags.contains("3"))
+        MaxHPScheme = 3;
+    else if(flags.contains("4"))
+        MaxHPScheme = 4;
     else
         MaxHPScheme = 0;
 
@@ -70,6 +96,7 @@ ServerInfoWidget::ServerInfoWidget(bool show_lack)
     player_count_label = new QLabel;
     two_general_label = new QLabel;
     scene_label = new QLabel;
+    same_label = new QLabel;
     basara_label = new QLabel;
     hegemony_label = new QLabel;
     free_choose_label = new QLabel;
@@ -89,6 +116,7 @@ ServerInfoWidget::ServerInfoWidget(bool show_lack)
     layout->addRow(tr("Player count"), player_count_label);
     layout->addRow(tr("2nd general mode"), two_general_label);
     layout->addRow(tr("Scene Mode"), scene_label);
+    layout->addRow(tr("Same Mode"), same_label);
     layout->addRow(tr("Basara Mode"), basara_label);
     layout->addRow(tr("Hegemony Mode"), hegemony_label);
     layout->addRow(tr("Max HP scheme"), max_hp_label);
@@ -115,6 +143,7 @@ void ServerInfoWidget::fill(const ServerInfoStruct &info, const QString &address
     port_label->setText(QString::number(Config.ServerPort));
     two_general_label->setText(info.Enable2ndGeneral ? tr("Enabled") : tr("Disabled"));
     scene_label->setText(info.EnableScene ? tr("Enabled") : tr("Disabled"));
+    same_label->setText(info.EnableSame ? tr("Enabled") : tr("Disabled"));
     basara_label->setText(info.EnableBasara ? tr("Enabled") : tr("Disabled"));
     hegemony_label->setText(info.EnableHegemony ? tr("Enabled") : tr("Disabled"));
 
@@ -170,46 +199,10 @@ void ServerInfoWidget::clear(){
     player_count_label->clear();
     two_general_label->clear();
     scene_label->clear();
+    same_label->clear();
     basara_label->clear();
     hegemony_label->clear();
     free_choose_label->clear();
     time_limit_label->clear();
     list_widget->clear();
-}
-
-
-bool CardMoveStructForClient::parse(const QString &str){
-    static QMap<QString, Player::Place> place_map;
-    if(place_map.isEmpty()){
-        place_map["hand"] = Player::Hand;
-        place_map["equip"] = Player::Equip;
-        place_map["judging"] = Player::Judging;
-        place_map["special"] = Player::Special;
-        place_map["_"] = Player::DiscardedPile;
-        place_map["="] = Player::DrawPile;
-    }
-
-    // example: 12:tenshi@equip->moligaloo@hand
-    QRegExp pattern("(-?\\d+):(.+)@(.+)->(.+)@(.+)");
-    if(!pattern.exactMatch(str)){
-        return false;
-    }
-
-    QStringList words = pattern.capturedTexts();
-
-    card_id = words.at(1).toInt();
-
-    if(words.at(2) == "_")
-        from = NULL;
-    else
-        from = ClientInstance->getPlayer(words.at(2));
-    from_place = place_map.value(words.at(3), Player::DiscardedPile);
-
-    if(words.at(4) == "_")
-        to = NULL;
-    else
-        to = ClientInstance->getPlayer(words.at(4));
-    to_place = place_map.value(words.at(5), Player::DiscardedPile);
-
-    return true;
 }

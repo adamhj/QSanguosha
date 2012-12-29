@@ -1,12 +1,15 @@
 #ifndef RECORDER_H
 #define RECORDER_H
 
+#include "protocol.h"
+
 #include <QObject>
 #include <QTime>
 #include <QThread>
 #include <QMutex>
 #include <QSemaphore>
 #include <QImage>
+#include <QMap>
 
 class Recorder : public QObject
 {
@@ -16,9 +19,10 @@ public:
     static QImage TXT2PNG(QByteArray data);
     bool save(const QString &filename) const;
     void recordLine(const QString &line);
+    QList<QString> getRecords() const;
 
 public slots:
-    void record(char *line);
+    void record(const char *line);
 
 private:
     QTime watch;
@@ -33,8 +37,14 @@ public:
     explicit Replayer(QObject *parent, const QString &filename);
     static QByteArray PNG2TXT(const QString filename);
 
+    QString &commandProceed(QString &cmd);
     int getDuration() const;
     qreal getSpeed();
+
+    QString getPath() const;
+
+    bool m_isOldVersion;
+    int m_commandSeriesCounter;
 
 public slots:
     void uniform();

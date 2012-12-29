@@ -1,25 +1,4 @@
-sgs.ai_skill_invoke.yitian_lost = function(self, data)
-	if next(self.enemies) then
-		return true
-	else
-		return false
-	end
-end
-
-sgs.ai_skill_playerchosen.yitian_lost = sgs.ai_skill_playerchosen.damage
-sgs.ai_playerchosen_intention.yitian_lost = 80
-
-sgs.ai_skill_invoke.yitian_sword = function(self, targets)
-	local slash=self:getCard("Slash")
-	if not slash then return false end
-	dummy_use={isDummy=true}
-	self:useBasicCard(slash,dummy_use)
-	if dummy_use.card then return true else return false end
-end
-
-sgs.weapon_range.YitianSword = 2
-
-sgs.ai_skill_invoke.guixin2 = true
+sgs.ai_skill_invoke.weiwudi_guixin = true
 
 local function findPlayerForModifyKingdom(self, players)
 	local lord = self.room:getLord()
@@ -66,7 +45,7 @@ local function chooseKingdomForPlayer(self, to_modify)
 	return "wei"
 end
 
-sgs.ai_skill_choice.guixin2 = function(self, choices)
+sgs.ai_skill_choice.weiwudi_guixin = function(self, choices)
 	if choices == "wei+shu+wu+qun" then
 		local to_modify = self.room:getTag("Guixin2Modify"):toPlayer()
 		return chooseKingdomForPlayer(self, to_modify)
@@ -108,7 +87,7 @@ sgs.ai_skill_choice.guixin2 = function(self, choices)
 	end
 end
 
-sgs.ai_skill_playerchosen.guixin2 = function(self, players)
+sgs.ai_skill_playerchosen.weiwudi_guixin = function(self, players)
 	local player = findPlayerForModifyKingdom(self, players)
 	return player or players:first()
 end
@@ -183,7 +162,7 @@ sgs.ai_skill_use["@@jueji"]=function(self,prompt)
 	cards = sgs.QList2Table(cards)
 	local top_value=0
 	for _, hcard in ipairs(cards) do
-		if not hcard:inherits("Jink") then
+		if not hcard:isKindOf("Jink") then
 			if self:getUseValue(hcard) > top_value then	top_value = self:getUseValue(hcard) end
 		end
 	end
@@ -328,7 +307,7 @@ sgs.ai_skill_use_func.LianliSlashCard = function(card, use, self)
 end
 
 local lianli_slash_filter = function(player, carduse)
-	if carduse.card:inherits("LianliSlashCard") then
+	if carduse.card:isKindOf("LianliSlashCard") then
 		sgs.lianlislash = false
 	end
 end
@@ -477,7 +456,6 @@ sgs.ai_skill_discard.gongmou = function(self, discard_num, optional, include_equ
 	local cards = sgs.QList2Table(self.player:getHandcards())
 	local to_discard = {}
 	local compare_func = function(a, b)
-		if a:inherits("Shit") ~= b:inherits("Shit") then return a:inherits("Shit") end
 		return self:getKeepValue(a) < self:getKeepValue(b)
 	end
 	table.sort(cards, compare_func)
@@ -493,20 +471,20 @@ sgs.ai_cardshow.lexue = function(self, requestor)
 	local cards = self.player:getHandcards()
 	if self:isFriend(requestor) then
 		for _, card in sgs.qlist(cards) do
-			if card:inherits("Peach") and requestor:isWounded() then
+			if card:isKindOf("Peach") and requestor:isWounded() then
 				result = card
 			elseif card:isNDTrick() then
 				result = card
-			elseif card:inherits("EquipCard") then
+			elseif card:isKindOf("EquipCard") then
 				result = card
-			elseif card:inherits("Slash") then
+			elseif card:isKindOf("Slash") then
 				result = card
 			end
 			if result then return result end
 		end
 	else
 		for _, card in sgs.qlist(cards) do
-			if card:inherits("Jink") or card:inherits("Shit") then
+			if card:isKindOf("Jink") then
 				result = card
 				return result
 			end
@@ -532,7 +510,7 @@ sgs.ai_skill_use_func.LexueCard = function(card, use, self)
 				local lexuestr = ("%s:lexue[%s:%s]=%d"):format(lexuesrc:objectName(), hcard:getSuitString(), hcard:getNumberString(), hcard:getId())
 				local lexue = sgs.Card_Parse(lexuestr)
 				if self:getUseValue(lexue) > self:getUseValue(hcard) then
-					if lexuesrc:inherits("BasicCard") then
+					if lexuesrc:isKindOf("BasicCard") then
 						self:useBasicCard(lexuesrc, use)
 						if use.card then use.card = lexue return end
 					else
@@ -606,9 +584,6 @@ sgs.ai_skill_use_func.YisheCard=function(card,use,self)
 		local cards=self.player:getHandcards()
 		cards=sgs.QList2Table(cards)
 		local usecards={}
-		for _,card in ipairs(cards) do
-			if card:inherits("Shit") then table.insert(usecards,card:getId()) end
-		end
 		local discards = self:askForDiscard("gamerule", math.min(self:getOverflow(),5-#usecards))
 		for _,card in ipairs(discards) do
 			table.insert(usecards,card)
@@ -623,7 +598,7 @@ end
 
 table.insert(sgs.ai_global_flags, "yisheasksource")
 local yisheask_filter = function(player, carduse)
-	if carduse.card:inherits("YisheAskCard") then
+	if carduse.card:isKindOf("YisheAskCard") then
 		sgs.yisheasksource = player
 	else
 		sgs.yisheasksource = nil
@@ -655,10 +630,8 @@ sgs.ai_skill_use_func.YisheAskCard=function(card,use,self)
 	if not zhanglu or not self:isFriend(zhanglu) then return end
 	cards = sgs.QList2Table(cards)
 	for _, pcard in ipairs(cards) do
-		if not sgs.Sanguosha:getCard(pcard):inherits("Shit") then
-			use.card = card
-			return
-		end
+		use.card = card
+		return
 	end
 end
 
@@ -726,7 +699,7 @@ sgs.ai_skill_use_func.TaichenCard=function(card,use,self)
 	local weapon = self.player:getWeapon()
 	local hcards = self.player:getHandcards()
 	for _, hcard in sgs.qlist(hcards) do
-		if hcard:inherits("Weapon") then 
+		if hcard:isKindOf("Weapon") then 
 			if weapon then card_str = "@TaichenCard=" .. hcard:getId() end
 		end
 	end

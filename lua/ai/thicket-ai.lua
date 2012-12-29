@@ -1,19 +1,4 @@
-sgs.ai_skill_invoke.xingshang = function(self, data)
-	local damage = data:toDamageStar()
-	if not damage then return true end
-	local cards = damage.to:getHandcards()
-	local shit_num = 0
-	for _, card in sgs.qlist(cards) do
-		if card:inherits("Shit") then
-			shit_num = shit_num + 1
-			if card:getSuit() == sgs.Card_Spade then
-				shit_num = shit_num + 1
-			end
-		end
-	end
-	if shit_num > 1 then return false end
-	return true
-end
+sgs.ai_skill_invoke.xingshang = true
 
 sgs.ai_skill_use["@@fangzhu"] = function(self, prompt)
 	self:sort(self.friends_noself)
@@ -56,8 +41,21 @@ sgs.ai_skill_use["@@fangzhu"] = function(self, prompt)
 end
 
 sgs.ai_skill_invoke.songwei = function(self, data)
-	local who = data:toPlayer()
-	return self:isFriend(who) and self.player:isAlive()
+	for _,p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+		if p:hasLordSkill("songwei") and self:isFriend(p) and not p:hasFlag("songweiused") and p:isAlive() then
+			return true
+		end
+	end
+end
+
+sgs.ai_skill_playerchosen.songwei = function(self, targets)
+	targets = sgs.QList2Table(targets)
+	for _, target in ipairs(targets) do
+		if self:isFriend(target) and not target:hasFlag("songweiused") and target:isAlive() then 
+			return target 
+		end 
+	end
+	return targets[1]
 end
 
 sgs.ai_card_intention.FangzhuCard = function(card, from, tos)
@@ -80,7 +78,7 @@ duanliang_skill.getTurnUseCard=function(self)
 	self:sortByUseValue(cards,true)
 
 	for _,acard in ipairs(cards)  do
-		if (acard:isBlack()) and (acard:inherits("BasicCard") or acard:inherits("EquipCard")) and (self:getDynamicUsePriority(acard)<sgs.ai_use_value.SupplyShortage)then
+		if (acard:isBlack()) and (acard:isKindOf("BasicCard") or acard:isKindOf("EquipCard")) and (self:getDynamicUsePriority(acard)<sgs.ai_use_value.SupplyShortage)then
 			card = acard
 			break
 		end
@@ -122,6 +120,15 @@ sgs.ai_skill_invoke.lieren = function(self, data)
 	return false
 end
 
+function sgs.ai_skill_pindian.lieren(minusecard, self, requestor)
+	local cards = sgs.QList2Table(self.player:getHandcards())
+	self:sortByKeepValue(cards)
+	if requestor:objectName() == self.player:objectName() then
+		return cards[1]:getId()
+	end
+	return self:getMaxCard(self.player):getId()
+end
+
 sgs.ai_skill_choice.yinghun = function(self, choices)
 	return self.yinghunchoice
 end
@@ -149,7 +156,8 @@ sgs.ai_skill_use["@@yinghun"] = function(self, prompt)
 		self:sort(self.enemies, "handcard")
 		for index = #self.enemies, 1, -1 do
 			local enemy = self.enemies[index]
-			if not self:hasSkills(sgs.lose_equip_skill, enemy) or not enemy:isNude() then
+			if not enemy:isNude() and not (self:hasSkills(sgs.lose_equip_skill, enemy) and
+			   not (enemy:getCards("he"):length() < x or sgs.getDefense(enemy) < 3)) then
 				self.yinghun = enemy
 				self.yinghunchoice = "d1tx"
 				break
@@ -305,7 +313,7 @@ luanwu_skill.getTurnUseCard=function(self)
 		local can_slash = false
 		if not can_slash then
 			for _, p in sgs.qlist(self.room:getOtherPlayers(player)) do
-				if player:inMyAttackRange(p) then can_slash = true break end
+				if player:distanceTo(p) <= player:getAttackRange() then can_slash = true break end
 			end
 		end
 		if not has_slash or not can_slash then
@@ -368,7 +376,7 @@ sgs.ai_view_as.jiuchi = function(card, player, card_place)
 	local suit = card:getSuitString()
 	local number = card:getNumberString()
 	local card_id = card:getEffectiveId()
-	if card_place ~= sgs.Player_Equip then
+	if card_place ~= sgs.Player_PlaceEquip then
 		if card:getSuit() == sgs.Card_Spade then
 			return ("analeptic:jiuchi[%s:%s]=%d"):format(suit, number, card_id)
 		end
@@ -378,7 +386,23 @@ end
 sgs.ai_skill_cardask["@roulin1-jink-1"] = sgs.ai_skill_cardask["@wushuang-jink-1"]
 sgs.ai_skill_cardask["@roulin2-jink-1"] = sgs.ai_skill_cardask["@wushuang-jink-1"]
 
-sgs.ai_skill_invoke.baonue = sgs.ai_skill_invoke.songwei
+sgs.ai_skill_invoke.baonue = function(self, data)
+	for _,p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+		if p:hasLordSkill("baonue") and self:isFriend(p) and not p:hasFlag("baonueused") and p:isAlive() then
+			return true
+		end
+	end
+end
+
+sgs.ai_skill_playerchosen.baonue = function(self, targets)
+	targets = sgs.QList2Table(targets)
+	for _, target in ipairs(targets) do
+		if self:isFriend(target) and not target:hasFlag("baonueused") and target:isAlive() then 
+			return target 
+		end 
+	end
+	return targets[1]
+end
 
 sgs.dongzhuo_suit_value = 
 {

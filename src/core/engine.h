@@ -1,16 +1,21 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
+#include "RoomState.h"
 #include "card.h"
 #include "general.h"
 #include "skill.h"
 #include "package.h"
 #include "exppattern.h"
+#include "protocol.h"
+#include "util.h"
 
 #include <QHash>
 #include <QStringList>
 #include <QMetaObject>
-
+#include <QThread>
+#include <QList>
+#include <QMutex>
 class AI;
 class Scenario;
 
@@ -21,20 +26,24 @@ class Engine: public QObject
     Q_OBJECT
 
 public:
-    explicit Engine();
+    Engine();
     ~Engine();
 
     void addTranslationEntry(const char *key, const char *value);
     QString translate(const QString &to_translate) const;
-
-    lua_State *createLuaState(bool load_ai, QString &error_msg);
     lua_State *getLuaState() const;
+
+    int getMiniSceneCounts();
 
     void addPackage(Package *package);
     void addBanPackage(const QString &package_name);
     QStringList getBanPackages() const;
+
     void readBanPackages();
+    Card *cloneCard(const Card* card) const;
     Card *cloneCard(const QString &name, Card::Suit suit, int number) const;
+    Card *cloneCard(const QString &name, Card::Suit suit, int number,
+                    const QStringList &flags) const;
     SkillCard *cloneSkillCard(const QString &name) const;
     QString getVersionNumber() const;
     QString getVersion() const;
@@ -48,31 +57,34 @@ public:
     QMap<QString, QString> getAvailableModes() const;
     QString getModeName(const QString &mode) const;
     int getPlayerCount(const QString &mode) const;
-    void getRoles(const QString &mode, char *roles) const;
+    QString getRoles(const QString &mode) const;
     QStringList getRoleList(const QString &mode) const;
     int getRoleIndex() const;
 
     const CardPattern *getPattern(const QString &name) const;
     QList<const Skill *> getRelatedSkills(const QString &skill_name) const;
 
-    QStringList getScenarioNames() const;
+    QStringList getModScenarioNames() const;
     void addScenario(Scenario *scenario);
     const Scenario *getScenario(const QString &name) const;
-
     void addPackage(const QString &name);
-    void addScenario(const QString &name);
 
     const General *getGeneral(const QString &name) const;
     int getGeneralCount(bool include_banned = false) const;
     const Skill *getSkill(const QString &skill_name) const;
+    const Skill *getSkill(const EquipCard *card) const;
     QStringList getSkillNames() const;
     const TriggerSkill *getTriggerSkill(const QString &skill_name) const;
     const ViewAsSkill *getViewAsSkill(const QString &skill_name) const;
     QList<const DistanceSkill *> getDistanceSkills() const;
+    QList<const MaxCardsSkill *> getMaxCardsSkills() const;
     void addSkills(const QList<const Skill *> &skills);
 
     int getCardCount() const;
-    const Card *getCard(int index) const;
+    const Card *getEngineCard(int cardId) const;
+    // @todo: consider making this const Card*
+    Card *getCard(int cardId);
+    WrappedCard *getWrappedCard(int cardId);
 
     QStringList getLords() const;
     QStringList getRandomLords() const;
@@ -81,19 +93,31 @@ public:
     QString getRandomGeneralName() const;
     QStringList getLimitedGeneralNames() const;
 
-    void playAudio(const QString &name) const;
-    void playEffect(const QString &filename) const;
-    void playSkillEffect(const QString &skill_name, int index) const;
-    void playCardEffect(const QString &card_name, bool is_male) const;
+    void playSystemAudioEffect(const QString &name) const;
+    void playAudioEffect(const QString &filename) const;
+    void playSkillAudioEffect(const QString &skill_name, int index) const;
 
     const ProhibitSkill *isProhibited(const Player *from, const Player *to, const Card *card) const;
     int correctDistance(const Player *from, const Player *to) const;
+    int correctMaxCards(const Player *target) const;
+
+    void registerRoom(QObject* room);
+    void unregisterRoom();
+    QObject* currentRoomObject();
+    Room* currentRoom();
+    RoomState* currentRoomState();
 
 private:
+    void _loadMiniScenarios();
+    void _loadModScenarios();
+
+    QMutex m_mutex;
     QHash<QString, QString> translations;
     QHash<QString, const General *> generals, hidden_generals;
     QHash<QString, const QMetaObject *> metaobjects;
+    QHash<QString, QString> className2objectName;
     QHash<QString, const Skill *> skills;
+    QHash<QThread *, QObject *> m_rooms;
     QMap<QString, QString> modes;
     QMap<QString, const CardPattern *> patterns;
     QMultiMap<QString, QString> related_skills;
@@ -101,25 +125,18 @@ private:
     // special skills
     QList<const ProhibitSkill *> prohibit_skills;
     QList<const DistanceSkill *> distance_skills;
-
-    QHash<QString, const Scenario *> scenarios;
+    QList<const MaxCardsSkill *> maxcards_skills;
 
     QList<Card*> cards;
     QStringList lord_list, nonlord_list;
     QSet<QString> ban_package;
+    QHash<QString, Scenario *> m_scenarios;
+    QHash<QString, Scenario *> m_miniScenes;
+    Scenario *m_customScene;
 
     lua_State *lua;
 };
 
 extern Engine *Sanguosha;
-
-template<typename T>
-void qShuffle(QList<T> &list){
-    int i, n = list.length();
-    for(i=0; i<n; i++){
-        int r = qrand() % (n - i) + i;
-        list.swap(i, r);
-    }
-}
 
 #endif // ENGINE_H

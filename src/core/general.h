@@ -36,13 +36,14 @@ public:
     bool isHidden() const;
     bool isTotallyHidden() const;
 
-    enum Gender {Male, Female, Neuter};
+    enum Gender {SexLess, Male, Female, Neuter};
     Gender getGender() const;
     void setGender(Gender gender);
 
     void addSkill(Skill* skill);
     void addSkill(const QString &skill_name);    
     bool hasSkill(const QString &skill_name) const;
+    QList<const Skill *> getSkillList() const;
     QList<const Skill *> getVisibleSkillList() const;
     QSet<const Skill *> getVisibleSkills() const;
     QSet<const TriggerSkill *> getTriggerSkills() const;
@@ -50,13 +51,8 @@ public:
     void addRelateSkill(const QString &skill_name);
     QStringList getRelatedSkillNames() const;
 
-    QString getPixmapPath(const QString &category) const;
     QString getPackage() const;
     QString getSkillDescription() const;
-
-    static QSize BigIconSize;
-    static QSize SmallIconSize;
-    static QSize TinyIconSize;
 
 public slots:
     void lastWord() const;

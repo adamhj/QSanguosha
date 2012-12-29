@@ -2,7 +2,6 @@
 #define SKILL_H
 
 class Player;
-class CardItem;
 class Card;
 class ServerPlayer;
 class QDialog;
@@ -14,8 +13,8 @@ class QDialog;
 class Skill : public QObject
 {
     Q_OBJECT
-    Q_ENUMS(Frequency);
-    Q_ENUMS(Location);
+    Q_ENUMS(Frequency)
+    Q_ENUMS(Location)
 
 public:
     enum Frequency{
@@ -34,6 +33,7 @@ public:
     explicit Skill(const QString &name, Frequency frequent = NotFrequent);
     bool isLordSkill() const;
     QString getDescription() const;
+    QString getNotice(int index) const;
     QString getText() const;
     bool isVisible() const;
 
@@ -44,12 +44,11 @@ public:
     virtual Location getLocation() const;
 
     void initMediaSource();
-    void playEffect(int index = -1) const;
+    void playAudioEffect(int index = -1) const;
     void setFlag(ServerPlayer *player) const;
     void unsetFlag(ServerPlayer *player) const;
     Frequency getFrequency() const;
     QStringList getSources() const;
-
 protected:
     Frequency frequency;
     QString default_choice;
@@ -65,12 +64,14 @@ class ViewAsSkill:public Skill{
 public:
     ViewAsSkill(const QString &name);
 
-    virtual bool viewFilter(const QList<CardItem *> &selected, const CardItem *to_select) const = 0;
-    virtual const Card *viewAs(const QList<CardItem *> &cards) const = 0;
+    virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const = 0;
+    virtual const Card *viewAs(const QList<const Card *> &cards) const = 0;
 
-    bool isAvailable() const;
+    bool isAvailable(const Player* invoker, CardUseStruct::CardUseReason reason, const QString &pattern) const;
     virtual bool isEnabledAtPlay(const Player *player) const;
     virtual bool isEnabledAtResponse(const Player *player, const QString &pattern) const;
+    virtual bool isEnabledAtNullification(const ServerPlayer *player) const;
+    static const ViewAsSkill* parseViewAsSkill(const Skill* skill);
 };
 
 class ZeroCardViewAsSkill: public ViewAsSkill{
@@ -79,8 +80,8 @@ class ZeroCardViewAsSkill: public ViewAsSkill{
 public:
     ZeroCardViewAsSkill(const QString &name);
 
-    virtual bool viewFilter(const QList<CardItem *> &selected, const CardItem *to_select) const;
-    virtual const Card *viewAs(const QList<CardItem *> &cards) const;
+    virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const;
+    virtual const Card* viewAs(const QList<const Card *> &cards) const;
 
     virtual const Card *viewAs() const = 0;
 };
@@ -91,11 +92,11 @@ class OneCardViewAsSkill: public ViewAsSkill{
 public:
     OneCardViewAsSkill(const QString &name);
 
-    virtual bool viewFilter(const QList<CardItem *> &selected, const CardItem *to_select) const;
-    virtual const Card *viewAs(const QList<CardItem *> &cards) const;
+    virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const;
+    virtual const Card* viewAs(const QList<const Card *> &cards) const;
 
-    virtual bool viewFilter(const CardItem *to_select) const = 0;
-    virtual const Card *viewAs(CardItem *card_item) const = 0;
+    virtual bool viewFilter(const Card *to_select) const = 0;
+    virtual const Card *viewAs(const Card *originalCard) const = 0;
 };
 
 class FilterSkill: public OneCardViewAsSkill{
@@ -115,7 +116,7 @@ public:
 
     virtual int getPriority() const;
     virtual bool triggerable(const ServerPlayer *target) const;
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const = 0;
+    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const = 0;
 
 protected:
     const ViewAsSkill *view_as_skill;
@@ -141,7 +142,7 @@ public:
     MasochismSkill(const QString &name);
 
     virtual int getPriority() const;
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const;
+    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
     virtual void onDamaged(ServerPlayer *target, const DamageStruct &damage) const = 0;
 };
 
@@ -151,7 +152,7 @@ class PhaseChangeSkill: public TriggerSkill{
 public:
     PhaseChangeSkill(const QString &name);
 
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const;
+    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
     virtual bool onPhaseChange(ServerPlayer *target) const =0;
 };
 
@@ -161,18 +162,8 @@ class DrawCardsSkill: public TriggerSkill{
 public:
     DrawCardsSkill(const QString &name);
 
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const;
+    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
     virtual int getDrawNum(ServerPlayer *player, int n) const = 0;
-};
-
-class SlashBuffSkill: public TriggerSkill{
-    Q_OBJECT
-
-public:
-    SlashBuffSkill(const QString &name);
-
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const;
-    virtual bool buff(const SlashEffectStruct &effect) const = 0;
 };
 
 class GameStartSkill: public TriggerSkill{
@@ -181,7 +172,7 @@ class GameStartSkill: public TriggerSkill{
 public:
     GameStartSkill(const QString &name);
 
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const;
+    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
     virtual void onGameStart(ServerPlayer *player) const = 0;
 };
 
@@ -214,6 +205,15 @@ public:
     DistanceSkill(const QString &name);
 
     virtual int getCorrect(const Player *from, const Player *to) const = 0;
+};
+
+class MaxCardsSkill: public Skill{
+    Q_OBJECT
+
+public:
+    MaxCardsSkill(const QString &name);
+
+    virtual int getExtra(const Player *target) const = 0;
 };
 
 class WeaponSkill: public TriggerSkill{

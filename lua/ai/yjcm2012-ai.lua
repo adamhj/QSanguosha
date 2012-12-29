@@ -1,13 +1,21 @@
 sgs.ai_skill_invoke.zishou = function(self, data)
-	return self.player:getHandcardNum() < 2 and self.player:isWounded()
+	local chance_value = 1
+	if (self.player:getHp() <= 2) then chance_value = chance_value + 1 end
+
+	local peach_num = self:getCardsNum("Peach")
+	local can_save_card_num = self.player:getMaxCards() - self.player:getHandcardNum()
+
+	return self.player:isSkipped(sgs.Player_Play)
+			or ((self.player:getLostHp() + 2) - can_save_card_num + peach_num  <= chance_value)
 end
 
 sgs.ai_skill_invoke.qianxi = function(self, data)
 	local damage = data:toDamage()
 	local target = damage.to
 	if self:isFriend(target) then return false end
+	if target:getLostHp() >= 2 and target:getHp() <= 1 then return false end
 	if self:hasSkills(sgs.masochism_skill,target) or self:hasSkills(sgs.recover_skill,target) or self:hasSkills("longhun|buqu",target) then return true end
-	if damage.card:hasFlag("drank") then return false end
+	if damage.damage > 1 then return false end
 	return (target:getMaxHp() - target:getHp()) < 2 
 end
 
@@ -59,13 +67,14 @@ sgs.ai_skill_choice.jiangchi = function(self, choices)
 	end
 	if slashnum > 1 or (slashnum > 0 and goodtarget == 0) then needburst = 1 end
 	self:sort(self.enemies,"defense")
-	
+	if goodtarget == 0 or self.player:isSkipped(sgs.Player_Play) then return "jiang" end
+		
 	for _,enemy in ipairs(self.enemies) do
 		local def=sgs.getDefense(enemy)
 		local amr=enemy:getArmor()
-		local eff=(not amr) or self.player:hasWeapon("qinggang_sword") or not
-			((amr:inherits("Vine") and not self.player:hasWeapon("fan"))
-			or (amr:objectName()=="eight_diagram"))
+		local eff=(not amr) or self.player:hasWeapon("QinggangSword") or not
+			((amr:isKindOf("Vine") and not self.player:hasWeapon("Fan"))
+			or (amr:objectName()=="EightDiagram"))
 			
 		if enemy:hasSkill("kongcheng") and enemy:isKongcheng() then
 		elseif self:slashProhibit(nil, enemy) then
@@ -76,16 +85,16 @@ sgs.ai_skill_choice.jiangchi = function(self, choices)
 	for _,enemy in ipairs(self.enemies) do
 		local def=sgs.getDefense(enemy)
 		local amr=enemy:getArmor()
-		local eff=(not amr) or self.player:hasWeapon("qinggang_sword") or not
-			((amr:inherits("Vine") and not self.player:hasWeapon("fan"))
-			or (amr:objectName()=="eight_diagram"))
+		local eff=(not amr) or self.player:hasWeapon("QinggangSword") or not
+			((amr:isKindOf("Vine") and not self.player:hasWeapon("Fan"))
+			or (amr:objectName()=="EightDiagram"))
 
 		if enemy:hasSkill("kongcheng") and enemy:isKongcheng() then
 		elseif self:slashProhibit(nil, enemy) then
 		elseif eff and def<8 and needburst > 0 then return "chi"
 		end
 	end
-	if goodtarget == 0 then return "jiang" end
+
 	return "cancel"
 end
 
@@ -164,8 +173,6 @@ anxu_skill.getTurnUseCard=function(self)
 end
 
 sgs.ai_skill_use_func.AnxuCard=function(card,use,self)
-
-	self:sort(self.enemies,"handcard")
 	local friends={}
 	for _,player in ipairs(self.friends_noself) do
 		if not player:hasSkill("manjuan") then
@@ -189,6 +196,32 @@ sgs.ai_skill_use_func.AnxuCard=function(card,use,self)
 					use.to:append(lowest_friend)
 					return
 				end
+			end
+		end
+		for _,friend in ipairs(self.friends_noself) do
+			local hand1=friend:getHandcardNum()
+			local hand2=lowest_friend:getHandcardNum()
+			if hand1 > hand2 and hand1 > 2 then
+				use.card=card
+				if use.to then
+					use.to:append(friend)
+					use.to:append(lowest_friend)
+					return
+				end
+			end
+		end
+	end
+	self:sort(self.enemies,"handcard",true)
+	local much_enemy = self.enemies[1]
+	for _,enemy in ipairs(self.enemies) do
+		local hand1=enemy:getHandcardNum()
+		local hand2=much_enemy:getHandcardNum()
+		if hand1 < hand2 and hand1 > 1 then
+			use.card=card
+			if use.to then
+				use.to:append(enemy)
+				use.to:append(much_enemy)
+				return
 			end
 		end
 	end
@@ -217,7 +250,7 @@ end
 sgs.ai_skill_playerchosen.zhuiyi = function(self, targets)	
 	targets = sgs.QList2Table(targets)
 	self:sort(targets,"defense")
-	for _, friend in ipairs(self.friends_noself) do
+	for _, friend in ipairs(targets) do
 		if self:isFriend(friend) then
 			return friend
 		end
@@ -228,7 +261,7 @@ sgs.ai_view_as.lihuo = function(card, player, card_place)
 	local suit = card:getSuitString()
 	local number = card:getNumberString()
 	local card_id = card:getEffectiveId()
-	if card:inherits("Slash") and not (card:inherits("FireSlash") or card:inherits("ThunderSlash")) then
+	if card:isKindOf("Slash") and not (card:isKindOf("FireSlash") or card:isKindOf("ThunderSlash")) then
 		return ("fire_slash:lihuo[%s:%s]=%d"):format(suit, number, card_id)
 	end
 end
@@ -242,7 +275,7 @@ lihuo_skill.getTurnUseCard=function(self)
 	local slash_card
 	
 	for _,card in ipairs(cards)  do
-		if card:inherits("Slash") and not (card:inherits("FireSlash") or card:inherits("ThunderSlash")) then
+		if card:isKindOf("Slash") and not (card:isKindOf("FireSlash") or card:isKindOf("ThunderSlash")) then
 			slash_card = card
 			break
 		end
@@ -266,7 +299,7 @@ sgs.ai_skill_use["@@chunlao"] = function(self, prompt)
 	local cards = self.player:getCards("h")	
 	cards=sgs.QList2Table(cards)
 	for _,card in ipairs(cards)  do
-		if card:inherits("Slash") then
+		if card:isKindOf("Slash") then
 			table.insert(slashcards,card:getId()) 
 		end
 	end
@@ -276,7 +309,17 @@ sgs.ai_skill_use["@@chunlao"] = function(self, prompt)
 	return "."
 end
 
-sgs.ai_skill_invoke.chunlao = sgs.ai_skill_invoke.buyi
+sgs.ai_skill_invoke.chunlao = function(self, data)
+	local dying = data:toDying()
+	return self:isFriend(dying.who) and self.player:getPile("wine"):length() > 0
+end
+
+sgs.chengpu_keep_value = 
+{
+	Peach = 6,
+	Jink = 5.1,
+	Slash = 5.5,
+}
 
 sgs.ai_skill_invoke.zhiyu = function(self)
 	local cards = self.player:getCards("h")	
@@ -388,7 +431,7 @@ end
 
 sgs.ai_skill_use_func.QiceCard=function(card,use,self)
 	local userstring=card:toString()
-	userstring=(userstring:split(":"))[2]
+	userstring=(userstring:split(":"))[3]
 	local qicecard=sgs.Sanguosha:cloneCard(userstring, card:getSuit(), card:getNumber())
 	self:useTrickCard(qicecard,use) 
 	if not use.card then return end

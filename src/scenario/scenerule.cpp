@@ -1,7 +1,5 @@
 #include "engine.h"
 #include "standard-skillcards.h"
-#include "clientplayer.h"
-#include "client.h"
 #include "carditem.h"
 #include "scenerule.h"
 
@@ -38,25 +36,23 @@ public:
 
 class Scene26Effect : public TriggerSkill {
 public:
-    Scene26Effect(const QString &name) : TriggerSkill(name) { events << PhaseChange; }
+    Scene26Effect(const QString &name) : TriggerSkill(name) { events << EventPhaseStart; }
 
     virtual bool triggerable(const ServerPlayer *target) const {
         Q_UNUSED(target);
 
-        return true;
+        return target != NULL;
     }
 
     virtual int getPriority() const { return 3; }
 
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const {
+    virtual bool trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer *player, QVariant &data) const {
         Q_UNUSED(data);
-
-        Room *room = player->getRoom();
 
         if(room->getTag("SceneID").toInt() != 26)
             return false;
 
-        if(player == room->getCurrent() && event == PhaseChange) {
+        if(player == room->getCurrent() && triggerEvent == EventPhaseStart) {
             if(player->getPhase() == Player::Start) {
                 room->getThread()->delay();
                 if(room->getTag("SceneTurnLeft").toInt() != 4) player->skip(Player::Judge);
@@ -91,24 +87,20 @@ public:
         Room *room = effect.to->getRoom();
         int card_id = room->askForCardChosen(effect.from, effect.to, "hej", "scene_27_effect");
 
-        if(room->getCardPlace(card_id) == Player::Hand)
-            room->moveCardTo(Sanguosha->getCard(card_id), effect.from, Player::Hand, false);
-        else
-            room->obtainCard(effect.from, card_id);
+        room->obtainCard(effect.from, card_id, room->getCardPlace(card_id) != Player::PlaceHand);
     }
 };
 
 class Scene27Skill : public OneCardViewAsSkill {
     Scene27Skill():OneCardViewAsSkill("liangshangjunzi") { }
 
-    virtual bool viewFilter(const CardItem *to_select) const{
-        return to_select->getFilteredCard()->inherits("Dismantlement") || to_select->getFilteredCard()->inherits("Snatch");
+    virtual bool viewFilter(const Card* to_select) const{
+        return to_select->isKindOf("Dismantlement") || to_select->isKindOf("Snatch");
     }
 
-    virtual const Card *viewAs(CardItem *card_item) const{
-        const Card *first = card_item->getCard();
+    virtual const Card *viewAs(const Card *originalCard) const{
         Scene27Card *skill_card = new Scene27Card();
-        skill_card->addSubcard(first->getId());
+        skill_card->addSubcard(originalCard->getId());
         skill_card->setSkillName("scene_27_effect");
         return skill_card;
     }
@@ -117,7 +109,7 @@ class Scene27Skill : public OneCardViewAsSkill {
 SceneRule::SceneRule(QObject *parent) : GameRule(parent) {
     qsrand(QTime(0,0,0).secsTo(QTime::currentTime()));
 
-    events << CardEffect << Predamaged << Damaged;
+    events << CardEffect << DamageInflicted << Damaged;
 
     if(!Sanguosha->getSkill("#scene_dst_effect")) {
         QList<const Skill *> skillList;
@@ -126,10 +118,8 @@ SceneRule::SceneRule(QObject *parent) : GameRule(parent) {
     }
 }
 
-bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const {
-    Room *room = player->getRoom();
-
-    switch(event) {
+bool SceneRule::trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer *player, QVariant &data) const {
+    switch(triggerEvent) {
     case GameStart:
         if(player->isLord()) {
             room->setTag("SceneID", 0);
@@ -166,7 +156,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                     prevp.prepend(prevp.takeLast());
                     for(int i = 0; i < prevp.count(); i++) {
                         if(cardToMove[i]) {
-                            room->moveCardTo(cardToMove[i], prevp[i], Player::Hand, false);
+                            room->moveCardTo(cardToMove[i], prevp[i], Player::PlaceHand, false);
                             room->getThread()->delay();
                         }
                     }
@@ -237,7 +227,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                     prevp.append(prevp.takeFirst());
                     for(int i = 0; i < prevp.count(); i++) {
                         if(cardToMove[i]) {
-                            room->moveCardTo(cardToMove[i], prevp[i], Player::Hand, false);
+                            room->moveCardTo(cardToMove[i], prevp[i], Player::PlaceHand, false);
                             room->getThread()->delay();
                         }
                     }
@@ -254,7 +244,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                             if(p->getHandcardNum() == 1)
                                 p->throwAllHandCards();
                             else
-                                room->askForDiscard(p, "scene_18_eff", 1);
+                                room->askForDiscard(p, "scene_18_eff", 1, 1);
                         }
                     }
                     break;
@@ -336,7 +326,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                                         if(p->getHandcardNum() == 1)
                                             p->throwAllHandCards();
                                         else
-                                            room->askForDiscard(nextAlivePlayer, "Scene29", 1);
+                                            room->askForDiscard(nextAlivePlayer, "Scene29", 1, 1);
                                     }
                                 }
                             } else {
@@ -352,7 +342,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                                         if(p->getHandcardNum() == 1)
                                             p->throwAllHandCards();
                                         else
-                                            room->askForDiscard(p, "Scene29", 1);
+                                            room->askForDiscard(p, "Scene29", 1, 1);
                                     }
                                 }
                             }
@@ -379,7 +369,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                     }
 
                     foreach(int card, cardList) {
-                        room->throwCard(card);
+                        room->throwCard(card, NULL);
                     }
 
                     room->fillAG(cardList);
@@ -399,12 +389,9 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
             }
         }
 
-        switch(room->getTag("SceneID").toInt()) {
-        }
-
         break;
 
-    case PhaseChange:
+    case EventPhaseStart:
         switch(room->getTag("SceneID").toInt()) {
         case 6:
             if(player->getPhase() == Player::Start) {
@@ -420,7 +407,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
         CardUseStruct use = data.value<CardUseStruct>();
         switch(room->getTag("SceneID").toInt()) {
         case 16:
-            if(use.card->inherits("Peach") && player->getPhase() == Player::Play) {
+            if(use.card->isKindOf("Peach") && player->getPhase() == Player::Play) {
                 ServerPlayer *effectTo = room->askForPlayerChosen(player, room->getOtherPlayers(player), "Scene16");
                 RecoverStruct recover;
                 recover.who = effectTo;
@@ -432,7 +419,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                 log.to << effectTo;
                 room->sendLog(log);
 
-                room->throwCard(use.card);
+                room->throwCard(use.card, NULL);
                 room->recover(effectTo, recover);
                 return true;
             }
@@ -446,7 +433,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
         CardEffectStruct effect = data.value<CardEffectStruct>();
         switch(room->getTag("SceneID").toInt()) {
         case 7:
-            if(effect.card->inherits("TrickCard") && !effect.card->inherits("DelayedTrick")) {
+            if(effect.card->isKindOf("TrickCard") && !effect.card->isKindOf("DelayedTrick")) {
                 LogMessage log;
                 log.type = "#Scene7CardInvalid";
                 log.from = player;
@@ -459,7 +446,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
         break;
     }
 
-    case Predamaged:
+    case DamageInflicted:
     {
         LogMessage log;
         DamageStruct damage = data.value<DamageStruct>();
@@ -478,12 +465,12 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                 const Card *card;
                 foreach(ServerPlayer *p, room->getOtherPlayers(player)) {
                     while(!p->isKongcheng() &&
-                          (card = room->askForCard(p, "fire_slash", "scene_14_prompt_fs")) != NULL)
+                          (card = room->askForCard(p, "fire_slash", "scene_14_prompt_fs", QVariant(), CardDiscarded)) != NULL)
                         damage.damage++;
                 }
                 foreach(ServerPlayer *p, room->getOtherPlayers(player)) {
                     while(!p->isKongcheng() &&
-                          (card = room->askForCard(p, "fire_attack", "scene_14_prompt_fa")) != NULL)
+                          (card = room->askForCard(p, "fire_attack", "scene_14_prompt_fa", QVariant(), CardDiscarded)) != NULL)
                         damage.damage++;
                 }
             }
@@ -521,7 +508,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
         }
 
         case 20:
-            if((damage.nature == DamageStruct::Thunder) && !damage.chain) {
+            if((damage.nature == DamageStruct::Thunder) && !damage.chain && !damage.transfer) {
                 log.type = "#Scene20Buff";
                 log.from = player;
                 log.to << damage.to;
@@ -535,7 +522,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
             break;
 
         case 21:
-            if((damage.nature == DamageStruct::Fire) && !damage.chain) {
+            if((damage.nature == DamageStruct::Fire) && !damage.chain && !damage.transfer) {
                 log.type = "#Scene21Buff";
                 log.from = player;
                 log.to << damage.to;
@@ -549,7 +536,8 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
             break;
 
         case 22:
-            if((damage.nature == DamageStruct::Thunder || damage.nature == DamageStruct::Fire) && !damage.chain) {
+            if((damage.nature == DamageStruct::Thunder || damage.nature == DamageStruct::Fire)
+                    && !damage.chain && !damage.transfer) {
                 log.type = "#Scene22Buff";
                 log.from = player;
                 log.to << damage.to;
@@ -570,7 +558,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
         DamageStruct damage = data.value<DamageStruct>();
         switch(room->getTag("SceneID").toInt()) {
         case 15:
-            if(damage.card && damage.card->inherits("Slash") && damage.nature == DamageStruct::Normal)
+            if(damage.card && damage.card->objectName() == "slash")
                 if(!player->isKongcheng()) {
                     LogMessage log;
                     log.type = "#Scene15NeedDiscard";
@@ -581,7 +569,7 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
                     if(player->getHandcardNum() == 1)
                         player->throwAllHandCards();
                     else
-                        room->askForDiscard(player, "scene_15_eff", 1);
+                        room->askForDiscard(player, "scene_15_eff", 1, 1);
                 }
             break;
         }
@@ -592,5 +580,5 @@ bool SceneRule::trigger(TriggerEvent event, ServerPlayer *player, QVariant &data
         break;
     }
 
-    return GameRule::trigger(event, player, data);
+    return GameRule::trigger(triggerEvent, room, player, data);
 }

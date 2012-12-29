@@ -6,6 +6,8 @@
 
 #include <QFile>
 #include <QBuffer>
+#include <QMessageBox>
+using namespace QSanProtocol;
 
 Recorder::Recorder(QObject *parent)
     :QObject(parent)
@@ -13,7 +15,7 @@ Recorder::Recorder(QObject *parent)
     watch.start();
 }
 
-void Recorder::record(char *line)
+void Recorder::record(const char *line)
 {
     recordLine(line);
 }
@@ -39,6 +41,12 @@ bool Recorder::save(const QString &filename) const{
         return false;
 }
 
+QList<QString> Recorder::getRecords() const{
+    QString record_data(data);
+    QList<QString> records = record_data.split("\n");
+    return records;
+}
+
 QImage Recorder::TXT2PNG(QByteArray txtData){
     QByteArray data = qCompress(txtData, 9);
     qint32 actual_size = data.size();
@@ -57,7 +65,8 @@ QImage Recorder::TXT2PNG(QByteArray txtData){
 }
 
 Replayer::Replayer(QObject *parent, const QString &filename)
-    :QThread(parent), filename(filename), speed(1.0), playing(true)
+    :QThread(parent), m_isOldVersion(false), m_commandSeriesCounter(1),
+      filename(filename), speed(1.0), playing(true)
 {
     QIODevice *device = NULL;
     if(filename.endsWith(".png")){
@@ -97,6 +106,10 @@ Replayer::Replayer(QObject *parent, const QString &filename)
         pairs << pair;
     }
 
+    if(m_isOldVersion){
+        QMessageBox::warning(NULL, tr("Warning"), tr("The replay use old protocol"));
+    }
+
     delete device;
 }
 
@@ -109,6 +122,33 @@ QByteArray Replayer::PNG2TXT(const QString filename){
     data = qUncompress(data);
 
     return data;
+}
+
+QString &Replayer::commandProceed(QString &cmd){
+    static QStringList split_flags;
+    if(split_flags.isEmpty()){
+        split_flags << ":" << "+" << "_" << "->";
+    }
+
+    foreach(QString flag, split_flags){
+        QStringList messages = cmd.split(flag);
+        if(messages.length() > 1){
+            QStringList message_analyse;
+            foreach(QString message, messages){
+                message_analyse << commandProceed(message);
+            }
+            cmd = "[" + message_analyse.join(",") + "]";
+        }
+        else{
+            bool ok = false;
+            cmd.toInt(&ok);
+
+            if(!cmd.startsWith("\"") && !cmd.startsWith("[") && !ok)
+                cmd = "\"" + cmd +"\"";
+        }
+    }
+
+    return cmd;
 }
 
 int Replayer::getDuration() const{
@@ -196,3 +236,6 @@ void Replayer::run(){
     }
 }
 
+QString Replayer::getPath() const{
+    return filename;
+}

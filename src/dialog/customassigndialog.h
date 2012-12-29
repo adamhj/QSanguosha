@@ -51,7 +51,7 @@ protected:
 
 private:
     QListWidget *list, *equip_list, *hand_list, *judge_list, *pile_list;
-    QComboBox *role_combobox, *num_combobox, *marks_combobox;
+    QComboBox *role_ComboBox, *num_ComboBox, *marks_ComboBox;
     QCheckBox  *starter_box;
     LabelButton *general_label, *general_label2;
     QCheckBox *max_hp_prompt,*hp_prompt;
@@ -60,10 +60,12 @@ private:
     QCheckBox *self_select_general, *self_select_general2;
     QPushButton *removeEquipButton, *removeHandButton, *removeJudgeButton, *removePileButton;
     QCheckBox *set_turned, *set_chained;
-    QComboBox *single_turn_box, *before_next_box;
+    QComboBox *ended_by_pile_box, *single_turn_box, *before_next_box;
     QCheckBox *random_roles_box;
-    QCheckBox *single_turn, *before_next;
-    QLabel *single_turn_text, *single_turn_text2, *before_next_text, *before_next_text2;
+    QCheckBox *ended_by_pile, *single_turn, *before_next;
+    QLabel *ended_by_pile_text, *ended_by_pile_text2,
+           *single_turn_text, *single_turn_text2,
+           *before_next_text, *before_next_text2;
     QPushButton *extra_skill_set;
     QPushButton *move_list_up_button, *move_list_down_button;
     QCheckBox *move_list_check, *move_pile_check;
@@ -89,8 +91,7 @@ private:
     QString general_name, general_name2;
     bool choose_general2;
     QString starter;
-    bool is_single_turn, is_before_next;
-    bool is_random_roles;
+    bool is_ended_by_pile, is_single_turn, is_before_next;
 
     QList<bool> set_options;
 
@@ -99,7 +100,7 @@ private slots:
     void updateRole(int index);
     void updateNumber(int num);
     void updateListItems();
-    void updatePileInfo(int row = -1);
+    void updatePileInfo(int row = -2);
     void updatePlayerInfo(QString name);
     void updatePlayerHpInfo(QString name);
     void updateAllRoles(bool toggled = false);
@@ -142,6 +143,7 @@ private slots:
 
     void checkSingleTurnBox(bool toggled);
     void checkBeforeNextBox(bool toggled);
+    void checkEndedByPileBox(bool toggled);
 
     void on_list_itemSelectionChanged(QListWidgetItem *current);
 

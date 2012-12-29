@@ -1,25 +1,27 @@
 -- translation for YitianPackage
 
 return {
-	["yitian"] = "倚天",
+	["yitian"] = "倚天包",
 	["yitian_cards"] = "倚天卡牌包",
 
-	["yitian_sword"] = "倚天剑",
-	[":yitian_sword"] = "1. 你的回合外，你每受到一次伤害，在其结算完后你可以立即使用一张【杀】2. 当此剑从装备区失去时，你可用此剑指定一名其他角色受到你的1点无属性伤害",
-	["yitian_sword:yes"] = "你可以使用指定任意一名角色受到你的一点无属性伤害",
+	["YitianSword"] = "倚天剑",
+	[":YitianSword"] = "装备牌·武器\
+攻击范围：２\
+武器特效：1、你的回合外，你每受到一次伤害，在其结算完后你可以立即使用一张【杀】。2、当此剑从装备区失去时，你可用此剑指定一名其他角色受到你造成的1点无属性伤害",
+	["YitianSword:yes"] = "你可以使用指定任意一名角色受到你的一点无属性伤害",
 	["yitian-lost"] = "倚天剑",
 	["@yitian-sword"] = "您在回合外获得了一张【杀】，您可以此时将此【杀】打出",
 
 	-- 神曹操内测第三版
-	["#shencc"] = "超世之英杰",
-	["shencc"] = "魏武帝",
-	["guixin2"] = "归心",
-	[":guixin2"] = "回合结束阶段，你可以做以下二选一：\
+	["#weiwudi"] = "超世之英杰",
+	["weiwudi"] = "魏武帝",
+	["weiwudi_guixin"] = "归心",
+	[":weiwudi_guixin"] = "回合结束阶段，你可以做以下二选一：\
       1. 永久改变一名其他角色的势力\
       2. 永久获得一项未上场或已死亡角色的主公技。(获得后即使你不是主公仍然有效)",
-	["guixin2:yes"] = "永久改变一名其他角色的势力或永久获得一项未上场或已死亡角色的主公技",
-	["guixin2:modify"] = "永久改变一名其他角色的势力",
-	["guixin2:obtain"] = "永久获得一项未上场或已死亡角色的主公技",
+	["weiwudi_guixin:yes"] = "永久改变一名其他角色的势力或永久获得一项未上场或已死亡角色的主公技",
+	["weiwudi_guixin:modify"] = "永久改变一名其他角色的势力",
+	["weiwudi_guixin:obtain"] = "永久获得一项未上场或已死亡角色的主公技",
 
 	["fanji"] = "反计",
 	[":fanji"] = "若其他角色使用的一张以你为唯一目标的非延时锦囊牌在结算完之后进入弃牌堆，你可以立即获得它",
@@ -30,6 +32,7 @@ return {
 	["chengxiang"] = "称象",
 	[":chengxiang"] = "每当你受到1次伤害，你可打出X张牌（X小于等于3），它们的点数之和与造成伤害的牌的点数相等，你可令X名角色各恢复1点体力（若其满体力则摸2张牌）",
 	["@chengxiang-card"] = "请打出点数之和为 %arg 的卡牌以发动【称象】技能",
+	["~chengxiang-card"] = "选择若干张牌→点击确定",
 	["conghui"] = "聪慧",
 	[":conghui"] = "<b>锁定技</b>，你将永远跳过你的弃牌阶段",
 	["zaoyao"] = "早夭",
@@ -77,6 +80,7 @@ return {
 	["@lianli-jink"] = "请提供一张闪给你的连理对象",
 	[":lianli-slash"] = "与你处于连理状态的女性角色可以替你出杀",
 	["@lianli-card"] = "请选择一名要连理的对象",
+	["~lianli"] = "选择一名男性角色→点击确定",
 	["#LianliConnection"] = "%from 与 %to 结为连理",
 	["@tied"] = "连理",
 
@@ -214,9 +218,9 @@ return {
 	[":jinshen"] = "锁定技，你不能成为【乐不思蜀】与【兵粮寸断】的目标。",
 
 -- CV&Designer
-	["designer:shencc"] = "官方内测第三版",
-	["illustrator:shencc"] = "三国志大战",
-	["cv:shencc"] = "",
+	["designer:weiwudi"] = "官方内测第三版",
+	["illustrator:weiwudi"] = "三国志大战",
+	["cv:weiwudi"] = "",
 
 	["designer:caochong"] = "太阳神上",
 	["illustrator:caochong"] = "三国志大战",

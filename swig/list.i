@@ -1,23 +1,23 @@
 template <class T>
 class QList{
 public:
-	QList();
-	~QList();
-	int length() const;
-	void append(const T &elem);
-	void prepend(const T &elem);
-	bool isEmpty() const;
-	bool contains ( const T & value ) const;
-	T first() const;
-	T last() const;
-	void removeAt(int i);
-	bool removeOne ( const T & value );
+    QList();
+    ~QList();
+    int length() const;
+    void append(const T &elem);
+    void prepend(const T &elem);
+    bool isEmpty() const;
+    bool contains ( const T & value ) const;
+    T first() const;
+    T last() const;
+    void removeAt(int i);
+    bool removeOne ( const T & value );
 };
 
 %extend QList{
-	T at(int i) const{
-		return $self->value(i);
-	}
+    T at(int i) const{
+        return $self->value(i);
+    }
 }
 
 %template(SPlayerList) QList<ServerPlayer *>;
@@ -27,3 +27,6 @@ public:
 %template(SkillList) QList<const Skill *>;
 %template(ItemList) QList<CardItem *>;
 %template(DelayedTrickList) QList<const DelayedTrick *>;
+%template(CardsMoveList) QList<CardsMoveStruct>;
+%template(PlaceList) QList<Player::Place>;
+%template(PhaseList) QList<Player::Phase>;

@@ -43,7 +43,11 @@ void ClientLogBox::appendLog(
     if(type.startsWith("$")){
         QString log_name;
         foreach(QString one_card, card_str.split("+")){
-            const Card *card = Sanguosha->getCard(one_card.toInt());
+            const Card *card;
+            if(type == "$JudgeResult")
+                card = Sanguosha->getCard(one_card.toInt());
+            else
+                card = Sanguosha->getEngineCard(one_card.toInt());
             if(log_name.isEmpty())
                 log_name = card->getLogName();
             else
@@ -56,13 +60,23 @@ void ClientLogBox::appendLog(
         log.replace("%to", to);
         log.replace("%card", log_name);
 
+        if(!arg2.isEmpty()){
+            arg2 = bold(Sanguosha->translate(arg2), Qt::yellow);
+            log.replace("%arg2", arg2);
+        }
+
+        if(!arg.isEmpty()){
+            arg = bold(Sanguosha->translate(arg), Qt::yellow);
+            log.replace("%arg", arg);
+        }
+
         log = QString("<font color='%2'>%1</font>").arg(log).arg(Config.TextEditColor.name());
         append(log);
 
         return;
     }
 
-    if(!card_str.isEmpty()){
+    if(!card_str.isEmpty() && !from_general.isEmpty()){
         // do Indicator animation
         foreach(QString to, tos){
             RoomSceneInstance->showIndicator(from_general, to);
@@ -73,6 +87,12 @@ void ClientLogBox::appendLog(
             return;
         QString card_name = card->getLogName();
         card_name = bold(card_name, Qt::yellow);
+
+        QString reason = tr("using");
+        if (type.endsWith("_Resp"))
+            reason = tr("playing");
+        if (type.endsWith("_Recast"))
+            reason = tr("recasting");
 
         if(card->isVirtualCard()){
             QString skill_name = Sanguosha->translate(card->getSkillName());
@@ -91,29 +111,40 @@ void ClientLogBox::appendLog(
                 if(subcard_list.isEmpty() || !skill_card->willThrow())
                     log = tr("%from use skill [%1]").arg(skill_name);
                 else{
-                    if(card->inherits("DummyCard"))
+                    if(card->isKindOf("DummyCard"))
                         skill_name = bold(Sanguosha->translate("free-discard"), Qt::yellow);
                     log = tr("%from use skill [%1], and the cost is %2").arg(skill_name).arg(subcard_str);
                 }
             }else{
                 if(subcard_list.isEmpty())
-                    log = tr("%from use skill [%1], played [%2]").arg(skill_name).arg(card_name);
+                    log = tr("%from use skill [%1], %3 [%2]").arg(skill_name).arg(card_name).arg(reason);
                 else
-                    log = tr("%from use skill [%1] use %2 as %3")
+                    log = tr("%from use skill [%1] %4 %2 as %3")
                           .arg(skill_name)
                           .arg(subcard_str)
-                          .arg(card_name);
+                          .arg(card_name)
+                          .arg(reason);
             }
 
             delete card;
-        }else
-            log = tr("%from use %1").arg(card_name);
+        }else if(card->isModified() && card->getSkillName() != QString()){
+            const Card *real = Sanguosha->getEngineCard(card->getEffectiveId());
+            QString skill_name = Sanguosha->translate(card->getSkillName());
+            skill_name = bold(skill_name, Qt::yellow);
+
+            QString subcard_str = bold(real->getLogName(), Qt::yellow);
+
+            log = tr("%from use skill [%1] %4 %2 as %3")
+                    .arg(skill_name)
+                    .arg(subcard_str)
+                    .arg(card_name)
+                    .arg(reason);
+        }
+        else
+            log = tr("%from %2 %1").arg(card_name).arg(reason);
 
         if(!to.isEmpty())
             log.append(tr(", target is %to"));
-
-
-
     }else
         log = Sanguosha->translate(type);
 
@@ -170,5 +201,5 @@ void ClientLogBox::appendSeparator(){
 
 void ClientLogBox::append(const QString &text)
 {
-    QTextEdit::append(QString("<p style=\"margin:3px p2x; line-height:120%;\">%1</p>").arg(text));
+    QTextEdit::append(QString("<p style=\"margin:3px 2px; line-height:120%;\">%1</p>").arg(text));
 }

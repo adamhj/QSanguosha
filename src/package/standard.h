@@ -50,14 +50,14 @@ private:
 class EquipCard:public Card{
     Q_OBJECT
 
-    Q_ENUMS(Location);
+    Q_ENUMS(Location)
 
 public:
     enum Location {
-        WeaponLocation,
-        ArmorLocation,
-        DefensiveHorseLocation,
-        OffensiveHorseLocation,
+        WeaponLocation = 0,
+        ArmorLocation = 1,
+        DefensiveHorseLocation = 2,
+        OffensiveHorseLocation = 3
     };
 
     EquipCard(Suit suit, int number):Card(suit, number, true), skill(NULL){}
@@ -65,10 +65,9 @@ public:
 
     virtual QString getType() const;
     virtual CardType getTypeId() const;
-    virtual QString getEffectPath(bool is_male) const;
 
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &targets) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
 
     virtual void onInstall(ServerPlayer *player) const;
     virtual void onUninstall(ServerPlayer *player) const;
@@ -87,6 +86,7 @@ public:
     Q_INVOKABLE GlobalEffect(Card::Suit suit, int number):TrickCard(suit, number, false){ target_fixed = true;}
     virtual QString getSubtype() const;
     virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+    virtual bool isAvailable(const Player *player) const;
 };
 
 class GodSalvation:public GlobalEffect{
@@ -103,7 +103,8 @@ class AmazingGrace:public GlobalEffect{
 
 public:
     Q_INVOKABLE AmazingGrace(Card::Suit suit, int number);
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &) const;
+    virtual void doPreAction(Room *room, const CardUseStruct &card_use) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
@@ -141,7 +142,7 @@ public:
     virtual QString getSubtype() const;
 
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &targets) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
 };
 
 class Collateral:public SingleTargetTrick{
@@ -152,7 +153,11 @@ public:
     virtual bool isAvailable(const Player *player) const;
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &targets) const;
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+
+private:
+    bool doCollateral(Room *room, ServerPlayer *killer, ServerPlayer *victim, const QString &prompt) const;
 };
 
 class ExNihilo: public SingleTargetTrick{
@@ -177,15 +182,13 @@ class DelayedTrick:public TrickCard{
 
 public:
     DelayedTrick(Suit suit, int number, bool movable = false);
-    void onNullified(ServerPlayer *target) const;
+    virtual void onNullified(ServerPlayer *target) const;
 
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &targets) const;
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
     virtual QString getSubtype() const;
     virtual void onEffect(const CardEffectStruct &effect) const;
     virtual void takeEffect(ServerPlayer *target) const = 0;
-
-    static const DelayedTrick *CastFrom(const Card *card);
-
 protected:
     JudgeStruct judge;
 
@@ -226,7 +229,7 @@ class Nullification:public SingleTargetTrick{
 public:
     Q_INVOKABLE Nullification(Card::Suit suit, int number);
 
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &targets) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
     virtual bool isAvailable(const Player *player) const;
 };
 
@@ -241,13 +244,10 @@ public:
 
     virtual Location location() const;
     virtual QString label() const;
-
-    virtual void onInstall(ServerPlayer *player) const;
-    virtual void onUninstall(ServerPlayer *player) const;
+    virtual QString getCommonEffectName() const;
 
 protected:
     int range;
-    bool attach_skill;
 };
 
 class Armor:public EquipCard{
@@ -259,6 +259,7 @@ public:
 
     virtual Location location() const;
     virtual QString label() const;
+    virtual QString getCommonEffectName() const;
 };
 
 class Horse:public EquipCard{
@@ -268,13 +269,12 @@ public:
     Horse(Suit suit, int number, int correct);
     int getCorrect() const;
 
-    virtual QString getEffectPath(bool is_male) const;
-
     virtual Location location() const;
     virtual void onInstall(ServerPlayer *player) const;
     virtual void onUninstall(ServerPlayer *player) const;
 
     virtual QString label() const;
+    virtual QString getCommonEffectName() const;
 
 private:
     int correct;
@@ -307,7 +307,8 @@ public:
     void setNature(DamageStruct::Nature nature);
 
     virtual QString getSubtype() const;
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &targets) const;
+    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
 
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
@@ -335,8 +336,7 @@ class Peach: public BasicCard{
 public:
     Q_INVOKABLE Peach(Card::Suit suit, int number);
     virtual QString getSubtype() const;
-    virtual QString getEffectPath(bool is_male) const;
-    virtual void use(Room *room, ServerPlayer *source, const QList<ServerPlayer *> &targets) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
     virtual bool isAvailable(const Player *player) const;
 };

@@ -22,17 +22,27 @@ sgs.weapon_range.Fan = 4
 sgs.ai_use_priority.Fan = 2.655
 sgs.ai_use_priority.Vine = 0.6
 
-sgs.ai_view_as.fan = function(card, player, card_place)
+	
+sgs.ai_skill_invoke.Fan = function(self, data)
+    local target = data:toSlashEffect().to
+    if self:isFriend(target) then
+      return target:isChained() and self:isGoodChainTarget(target)
+    else
+      return not (target:isChained() and not self:isGoodChainTarget(target))
+	end
+end
+
+sgs.ai_view_as.Fan = function(card, player, card_place)
 	local suit = card:getSuitString()
 	local number = card:getNumberString()
 	local card_id = card:getEffectiveId()
-	if card:inherits("Slash") and not (card:inherits("FireSlash") or card:inherits("ThunderSlash")) then
-		return ("fire_slash:fan[%s:%s]=%d"):format(suit, number, card_id)
+	if card:isKindOf("Slash") and not (card:isKindOf("FireSlash") or card:isKindOf("ThunderSlash")) then
+		return ("fire_slash:Fan[%s:%s]=%d"):format(suit, number, card_id)
 	end
 end
 
 local fan_skill={}
-fan_skill.name="fan"
+fan_skill.name="Fan"
 table.insert(sgs.ai_skills,fan_skill)
 fan_skill.getTurnUseCard=function(self)
 	local cards = self.player:getCards("h")	
@@ -40,7 +50,7 @@ fan_skill.getTurnUseCard=function(self)
 	local slash_card
 	
 	for _,card in ipairs(cards)  do
-		if card:inherits("Slash") and not (card:inherits("FireSlash") or card:inherits("ThunderSlash")) then
+		if card:isKindOf("Slash") and not (card:isKindOf("FireSlash") or card:isKindOf("ThunderSlash")) then
 			slash_card = card
 			break
 		end
@@ -50,7 +60,7 @@ fan_skill.getTurnUseCard=function(self)
 	local suit = slash_card:getSuitString()
 	local number = slash_card:getNumberString()
 	local card_id = slash_card:getEffectiveId()
-	local card_str = ("fire_slash:fan[%s:%s]=%d"):format(suit, number, card_id)
+	local card_str = ("fire_slash:Fan[%s:%s]=%d"):format(suit, number, card_id)
 	local fireslash = sgs.Card_Parse(card_str)
 	assert(fireslash)
 	
@@ -58,11 +68,11 @@ fan_skill.getTurnUseCard=function(self)
 		
 end
 
-function sgs.ai_weapon_value.fan(self, enemy)
+function sgs.ai_weapon_value.Fan(self, enemy)
 	if enemy and (self:isEquip("Vine", enemy) or self:isEquip("GaleShell", enemy)) then return 3 end
 end
 
-function sgs.ai_armor_value.vine(player, self)
+function sgs.ai_armor_value.Vine(player, self)
 	for _, enemy in ipairs(self:getEnemies(player)) do
 		if (enemy:canSlash(player) and self:isEquip("Fan",enemy)) or self:hasSkills("huoji|shaoying", enemy) then return -1 end
 		if enemy:objectName() == self.player:objectName() and (self:getCardId("FireSlash", enemy) or self:getCardId("FireAttack",enemy)) then return -1 end
@@ -87,11 +97,11 @@ function SmartAI:searchForAnaleptic(use,enemy,slash)
 	local allcards = self.player:getCards("he")
 	allcards = sgs.QList2Table(allcards)
 
-	if enemy:getArmor() and enemy:getArmor():objectName() == "silver_lion" then
+	if enemy:getArmor() and enemy:getArmor():objectName() == "SilverLion" then
 		return
 	end
 
-	if ((enemy:getArmor() and enemy:getArmor():objectName() == "eight_diagram") or enemy:getHandcardNum() > 2) 
+	if ((enemy:getArmor() and enemy:getArmor():objectName() == "EightDiagram") or enemy:getHandcardNum() > 2) 
 		and not ((self:isEquip("Axe") and #allcards > 4) or self.player:getHandcardNum() > 1+self.player:getHp()) then
 		return
 	end
@@ -99,7 +109,7 @@ function SmartAI:searchForAnaleptic(use,enemy,slash)
 	if self.player:getPhase() == sgs.Player_Play then
 		if self.player:hasFlag("lexue") then
 			local lexuesrc = sgs.Sanguosha:getCard(self.player:getMark("lexue"))
-			if lexuesrc:inherits("Analeptic") then
+			if lexuesrc:isKindOf("Analeptic") then
 				local cards = sgs.QList2Table(self.player:getHandcards())
 				self:sortByUseValue(cards, true)
 				for _, hcard in ipairs(cards) do
@@ -124,8 +134,7 @@ function SmartAI:searchForAnaleptic(use,enemy,slash)
 	if card_str then return sgs.Card_Parse(card_str) end
         
 	for _, anal in ipairs(cards) do
-		if (anal:className() == "Analeptic") and not (anal:getEffectiveId() == slash:getEffectiveId()) and
-			not isCompulsoryView(anal, "Slash", self.player, sgs.Player_Hand) then
+		if (anal:getClassName() == "Analeptic") and not (anal:getEffectiveId() == slash:getEffectiveId()) then
 			return anal
 		end
 	end
@@ -264,7 +273,7 @@ function SmartAI:useCardIronChain(card, use)
 			table.insert(enemytargets, enemy)
 		end
 	end
-	if not self.player:hasSkill("wuyan") then
+	if not self.player:hasSkill("noswuyan") then
 		if #friendtargets > 1 then
 			if use.to then use.to:append(friendtargets[1]) end
 			if use.to then use.to:append(friendtargets[2]) end
@@ -306,6 +315,7 @@ sgs.dynamic_value.benefit.IronChain = true
 
 function SmartAI:useCardFireAttack(fire_attack, use)  
 	if self.player:hasSkill("wuyan") then return end
+	if self.player:hasSkill("noswuyan") then return end
 	local lack = {
 		spade = true,
 		club = true,
@@ -331,7 +341,7 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 		if (self:objectiveLevel(enemy) > 3) and not enemy:isKongcheng() and not self.room:isProhibited(self.player, enemy, fire_attack)  
 			and self:damageIsEffective(enemy, sgs.DamageStruct_Fire, self.player) and self:hasTrickEffective(fire_attack, enemy)
 			and not self:cantbeHurt(enemy)
-			and not (enemy:isChained() and not self:isGoodChainTarget(enemy)) then
+			and not (enemy:isChained() and not self:isGoodChainTarget(enemy) and not self.player:hasSkill("jueqing")) then
 
 			local cards = enemy:getHandcards()
 			local success = true
@@ -358,7 +368,8 @@ function SmartAI:useCardFireAttack(fire_attack, use)
 	if #targets_succ > 0 then
 		use.card = fire_attack
 		if use.to then use.to:append(targets_succ[1]) end
-	elseif self.player:isChained() and self:isGoodChainTarget(self.player) and self:isGoodChainPartner(self.player) and self.player:getHandcardNum() > 1 then
+	elseif self.player:isChained() and self:isGoodChainTarget(self.player) and (self:isGoodChainPartner(self.player) 
+	or (self:isEquip("SilverLion") and self:hasSkill("fankui"))) and self.player:getHandcardNum() > 1 then
 		use.card = fire_attack
 		if use.to then use.to:append(self.player) end
 	elseif #targets_fail > 0 and self:getOverflow(self.player) > 0 then
@@ -376,6 +387,15 @@ sgs.ai_cardshow.fire_attack = function(self, requestor)
 	club = 2,
 	diamond = 1
 	}
+	if self.player:hasSkill("hongyan") then
+		priority  =
+		{
+			heart = 4,
+			spade = 0,
+			club = 2,
+			diamond = 1
+		}
+	end
 	local index = 0
 	local result
 	local cards = self.player:getHandcards()

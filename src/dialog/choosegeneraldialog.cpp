@@ -3,6 +3,8 @@
 #include "engine.h"
 #include "client.h"
 #include "settings.h"
+#include "protocol.h"
+#include "SkinBank.h"
 
 #include <QSignalMapper>
 #include <QLineEdit>
@@ -13,6 +15,8 @@
 #include <QRadioButton>
 #include <QCheckBox>
 #include <QTabWidget>
+
+using namespace QSanProtocol;
 
 OptionButton::OptionButton(QString icon_path, const QString &caption, QWidget *parent)
     :QToolButton(parent)
@@ -40,10 +44,11 @@ void OptionButton::mouseDoubleClickEvent(QMouseEvent *){
     emit double_clicked();
 }
 
-
 ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidget *parent)
-    :QDialog(parent), free_chooser(NULL)
+    :QDialog(parent)
 {
+    m_freeChooseDialog = NULL;
+
     setWindowTitle(tr("Choose general"));
 
     QString lord_name;
@@ -62,29 +67,31 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
 
     QSignalMapper *mapper = new QSignalMapper(this);
     QList<OptionButton *> buttons;
-    QString category("card");
-    QSize icon_size(200*0.8, 290*0.8);
-    if(generals.length() > 10){
-        category = "big";
-        icon_size = QSize(94, 96);
+    bool tooManyGenerals = (generals.length() > G_COMMON_LAYOUT.m_chooseGeneralBoxSwitchIconSizeThreshold);
+    QSize icon_size;
+    QSanRoomSkin::GeneralIconSize icon_type;
+    if (tooManyGenerals) 
+    {
+        icon_type = QSanRoomSkin::S_GENERAL_ICON_SIZE_LARGE;
+        icon_size = G_COMMON_LAYOUT.m_chooseGeneralBoxDenseIconSize;
     }
-
-    foreach(const General *general, generals){
-        QString icon_path = general->getPixmapPath(category);
+    else
+    {
+        icon_type = QSanRoomSkin::S_GENERAL_ICON_SIZE_CARD;
+        icon_size = G_COMMON_LAYOUT.m_chooseGeneralBoxSparseIconSize;
+    }
+    foreach (const General *general, generals){
+        QPixmap icon = G_ROOM_SKIN.getGeneralPixmap(general->objectName(), icon_type);
         QString caption = Sanguosha->translate(general->objectName());
-        OptionButton *button = new OptionButton(icon_path, caption);
-        button->setToolTip(general->getSkillDescription());
+        OptionButton *button = new OptionButton(QString());
+        button->setIcon(QIcon(icon));
         button->setIconSize(icon_size);
+        button->setToolTip(general->getSkillDescription());        
         buttons << button;
 
         mapper->setMapping(button, general->objectName());
         connect(button, SIGNAL(double_clicked()), mapper, SLOT(map()));
         connect(button, SIGNAL(double_clicked()), this, SLOT(accept()));
-
-        // special case
-        if(Self->getRoleEnum() == Player::Lord && general->objectName() == "shencaocao"){
-            button->setEnabled(false);
-        }
     }
 
     if(ServerInfo.EnableHegemony && ServerInfo.Enable2ndGeneral
@@ -94,33 +101,32 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
         foreach(const General *general, generals)
         {
             int party = 0;
-            foreach(const General *other, generals)
+            foreach (const General *other, generals)
                 if(other->getKingdom() == general->getKingdom())
-                    party ++;
-            if(party<2)
+                    party++;
+            if (party < 2)
                 buttons.at(index)->setEnabled(false);
             if(Self->getGeneral())
-                    if(Self->getGeneral()->getKingdom()
-                        != general->getKingdom()||
-                        Self->getGeneralName() ==
-                            general->objectName())
+                    if(Self->getGeneral()->getKingdom() != general->getKingdom()||
+                        Self->getGeneralName() == general->objectName())
                 buttons.at(index)->setEnabled(false);
             index ++;
         }
     }
 
     QLayout *layout = NULL;
-    const int columns = generals.length() > 10 ? 6 : 5;
+    const int columns = tooManyGenerals ? G_COMMON_LAYOUT.m_chooseGeneralBoxSwitchIconEachRowForTooManyGenerals :
+                                          G_COMMON_LAYOUT.m_chooseGeneralBoxSwitchIconEachRow;
     if(generals.length() <= columns){
         layout = new QHBoxLayout;
 
-        if(lord_name.size())
+        if(lord_name.size() && !ServerInfo.EnableHegemony)
         {
             const General * lord = Sanguosha->getGeneral(lord_name);
 
             QLabel *label = new QLabel;
             //label->setCaption(tr("Lord's general"));
-            label->setPixmap(lord->getPixmapPath(category));
+            label->setPixmap(G_ROOM_SKIN.getGeneralPixmap(lord->objectName(), icon_type));
             label->setToolTip(lord->getSkillDescription());
             layout->addWidget(label);
         }
@@ -137,13 +143,12 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
 
             QLabel *label = new QLabel;
             //label->setCaption(tr("Lord's general"));
-            label->setPixmap(lord->getPixmapPath(category));
+            label->setPixmap(G_ROOM_SKIN.getGeneralPixmap(lord->objectName(), icon_type));
             label->setToolTip(lord->getSkillDescription());
             grid_layout->addWidget(label,0,0);
         }
 
-        int i;
-        for(i=0; i<buttons.length(); i++){
+        for (int i = 0; i < buttons.length(); i++){
             int row = i / columns;
             int column = i % columns;
             grid_layout->addWidget(buttons.at(i), row, column+1);
@@ -151,7 +156,7 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
     }
 
     QString default_name = generals.first()->objectName();
-    for(int i=0;i<buttons.size();i++)
+    for(int i = 0;i < buttons.size();i++)
     {
         if(buttons.at(i)->isEnabled())
         {
@@ -163,16 +168,20 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
     mapper->setMapping(this, default_name);
     connect(this, SIGNAL(rejected()), mapper, SLOT(map()));
 
-    connect(mapper, SIGNAL(mapped(QString)), ClientInstance, SLOT(chooseItem(QString)));
+    connect(mapper, SIGNAL(mapped(QString)), ClientInstance, SLOT(onPlayerChooseGeneral(QString)));
 
     QVBoxLayout *dialog_layout = new QVBoxLayout;
     dialog_layout->addLayout(layout);
 
     // role prompt
     QLabel *role_label = new QLabel(tr("Your role is %1").arg(Sanguosha->translate(Self->getRole())));
-    if(lord_name.size())role_label->setText(tr("The lord has chosen %1. %2")
+    QLabel *seat_label = new QLabel(tr("Your seat is %1").arg(Sanguosha->translate("CAPITAL("
+                                                              + QString::number(Self->getSeat())
+                                                              + ")")));
+    if(lord_name.size())role_label->setText(tr("The lord has chosen %1. %2, %3.")
                                             .arg(Sanguosha->translate(lord_name))
-                                            .arg(role_label->text()));
+                                            .arg(role_label->text())
+                                            .arg(seat_label->text()));
     dialog_layout->addWidget(role_label);
 
     // progress bar & free choose button
@@ -180,10 +189,11 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
     if(ServerInfo.OperationTimeout == 0){
         progress_bar = NULL;
     }else{
-        progress_bar = new QProgressBar;
-        progress_bar->setMinimum(0);
-        progress_bar->setMaximum(100);
-        progress_bar->setTextVisible(false);
+        progress_bar = new QSanCommandProgressBar();
+        progress_bar->setFixedWidth(300);
+        progress_bar->setTimerEnabled(true);
+        progress_bar->setCountdown(S_COMMAND_CHOOSE_GENERAL);
+        progress_bar->show();
         last_layout->addWidget(progress_bar);
     }
 
@@ -203,44 +213,29 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
 
     setLayout(dialog_layout);
 
-    if(ServerInfo.OperationTimeout != 0)
-        startTimer(200);
+}
+
+void ChooseGeneralDialog::done(int result)
+{
+    if (m_freeChooseDialog != NULL)
+    {
+        m_freeChooseDialog->reject();
+        delete m_freeChooseDialog;
+        m_freeChooseDialog = NULL;
+    }
+    QDialog::done(result);
 }
 
 void ChooseGeneralDialog::freeChoose(){
-    FreeChooseDialog *dialog = new FreeChooseDialog(this);
+    QDialog* dialog = new FreeChooseDialog(this);
 
     connect(dialog, SIGNAL(accepted()), this, SLOT(accept()));
-    connect(dialog, SIGNAL(general_chosen(QString)), ClientInstance, SLOT(chooseItem(QString)));
+    connect(dialog, SIGNAL(general_chosen(QString)), ClientInstance, SLOT(onPlayerChooseGeneral(QString)));
 
-    free_chooser = dialog;
+    m_freeChooseDialog = dialog;
 
     dialog->exec();
 }
-
-void ChooseGeneralDialog::timerEvent(QTimerEvent *event){
-    if(progress_bar == NULL)
-        return;
-
-    static const int timeout = Config.S_CHOOSE_GENERAL_TIMEOUT;
-
-    int step = 100 / double(timeout * 5);
-    int new_value = progress_bar->value() + step;
-    new_value = qMin(progress_bar->maximum(), new_value);
-    progress_bar->setValue(new_value);
-
-    if(new_value >= progress_bar->maximum()){
-        killTimer(event->timerId());
-        if(isVisible()){
-            reject();
-            if(free_chooser)
-                free_chooser->reject();
-        }
-    }else
-        progress_bar->setValue(new_value);
-}
-
-// -------------------------------------
 
 FreeChooseDialog::FreeChooseDialog(QWidget *parent, bool pair_choose)
     :QDialog(parent), pair_choose(pair_choose)
@@ -255,6 +250,9 @@ FreeChooseDialog::FreeChooseDialog(QWidget *parent, bool pair_choose)
     QList<const General *> all_generals = Sanguosha->findChildren<const General *>();
     QMap<QString, QList<const General*> > map;
     foreach(const General *general, all_generals){
+        if(general->isTotallyHidden())
+            continue;
+
         map[general->getKingdom()] << general;
     }
 
@@ -331,12 +329,9 @@ QWidget *FreeChooseDialog::createTab(const QList<const General *> &generals){
     for(int i=0; i<generals.length(); i++){
         const General *general = generals.at(i);
         QString general_name = general->objectName();
-        if(general->isTotallyHidden())
-            continue;
-
         QString text = QString("%1[%2]")
-                       .arg(Sanguosha->translate(general_name))
-                       .arg(Sanguosha->translate(general->getPackage()));
+                .arg(Sanguosha->translate(general_name))
+                .arg(Sanguosha->translate(general->getPackage()));
 
         QAbstractButton *button;
         if(pair_choose)

@@ -10,12 +10,6 @@
 IndicatorItem::IndicatorItem(const QPointF &start, const QPointF &real_finish, Player *player)
     :start(start), finish(start), real_finish(real_finish)
 {
-    QGraphicsDropShadowEffect *halo = new QGraphicsDropShadowEffect();
-    halo->setOffset(0,0);
-    halo->setBlurRadius(5);
-    halo->setColor(Qt::white);
-
-    //setGraphicsEffect(halo);
     color = Sanguosha->getKingdomColor(player->getKingdom());
     width = player->isLord() ? 4 : 3;
 }
@@ -61,7 +55,8 @@ void IndicatorItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
 
     QLinearGradient linearGrad(start - QPoint(baseX,baseY),
                                finish - QPoint(baseX,baseY));
-    linearGrad.setColorAt(0, color.darker());
+    QColor start_color(255, 255, 255, 0);
+    linearGrad.setColorAt(0, start_color);
     linearGrad.setColorAt(1, color.lighter());
 
 
@@ -71,7 +66,7 @@ void IndicatorItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
     painter->setPen(pen);
     painter->drawLine(mapFromScene(start), mapFromScene(finish));
 
-    QPen pen2(QColor(200,200,200,130));
+    QPen pen2(QColor(200,200,200,30));
     pen2.setWidth(6);
     painter->setPen(pen2);
     painter->drawLine(mapFromScene(start), mapFromScene(finish));

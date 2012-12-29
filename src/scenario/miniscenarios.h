@@ -9,23 +9,25 @@ class MiniSceneRule : public ScenarioRule
 {
     Q_OBJECT
 public:
+    static const char* S_EXTRA_OPTION_RANDOM_ROLES;
+
     MiniSceneRule(Scenario *scenario);
-
     void assign(QStringList &generals, QStringList &roles) const;
-
     QStringList existedGenerals() const;
 
-    virtual bool trigger(TriggerEvent event, ServerPlayer *player, QVariant &data) const;
+    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
 
     void addNPC(QString feature);
     void setOptions(QStringList option);
     void setPile(QString cardList);
     void loadSetting(QString path);
 
-private:
+protected:
     QList< QMap<QString, QString> > players;
     QString setup;
     QMap<QString, QVariant> ex_options;
+    static const QString _S_DEFAULT_HERO;
+    QList<int> m_fixedDrawCards;
 };
 
 class MiniScene : public Scenario
@@ -33,6 +35,7 @@ class MiniScene : public Scenario
     Q_OBJECT
 
 public:
+    static const char* S_KEY_MINISCENE;
     MiniScene(const QString &name);
     void setupCustom(QString name) const;
     virtual void onTagSet(Room *room, const QString &key) const;
@@ -65,9 +68,9 @@ class LoadedScenario : public MiniScene
     Q_OBJECT
 public:
     LoadedScenario(const QString &name)
-        :MiniScene(QString("_mini_%1").arg(name))
+        :MiniScene(QString(MiniScene::S_KEY_MINISCENE).arg(name))
     {
-        setupCustom(QString("%1").arg(name));
+        setupCustom(name);
     }
 };
 
