@@ -40,6 +40,7 @@ public:
     
     void hideControlButtons();
     void showControlButtons();
+    virtual void showProgressBar(QSanProtocol::Countdown countdown);
 
     QSanSkillButton *removeSkillButton(const QString &skillName);
     QSanSkillButton *addSkillButton(const QString &skillName);
@@ -47,9 +48,12 @@ public:
     
     void highlightEquip(QString skillName, bool hightlight);
 
-    void setTrust(bool trust);    
+    void setTrust(bool trust);
+    virtual void killPlayer();
+    virtual void revivePlayer();
     void selectCard(const QString &pattern, bool forward = true, bool multiple = false);
     void selectEquip(int position);
+    void selectOnlyCard();
     void useSelected();
     const Card *getSelected() const;
     void unselectAll();

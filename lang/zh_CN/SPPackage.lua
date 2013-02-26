@@ -45,22 +45,6 @@ return {
 	["#YongsiBad"] = "%from 触发【%arg2】，须弃置 %arg 张牌",
 	["#YongsiWorst"] = "%from 的锁定技【%arg2】被触发，弃置了所有的装备和手牌（共 %arg 张）",
 
-	["#sp_diaochan"] = "绝世的舞姬",
-	["sp_diaochan"] = "SP貂蝉",
-	["&sp_diaochan"] = "貂蝉",
-	["illustrator:sp_diaochan"] = "巴萨小马",
-	["tuoqiao"] = "脱壳",
-	[":tuoqiao"] = "<b>限定技</b>，游戏开始时，你可以选择变身为SP貂蝉",
-	["SP-Diaochan"] = "SP貂蝉",
-
-	["#sp_sunshangxiang"] = "梦醉良缘",
-	["sp_sunshangxiang"] = "SP孙尚香",
-	["&sp_sunshangxiang"] = "孙尚香",
-	["illustrator:sp_sunshangxiang"] = "木美人",
-	["chujia"] = "出嫁",
-	[":chujia"] = "<b>限定技</b>，游戏开始时，你可以选择变身为SP孙尚香，势力为蜀",
-	["cv:sp_sunshangxiang"] = "官方，背碗卤粉",
-
 	["#sp_guanyu"] = "汉寿亭侯",
 	["sp_guanyu"] = "SP关羽",
 	["&sp_guanyu"] = "关羽",
@@ -70,37 +54,8 @@ return {
 	[":danji"] = "<b>觉醒技</b>，回合开始阶段，若你的手牌数大于你当前的体力值，且本局主公为曹操时，你须减1点体力上限并永久获得技能“马术”。",
 	["#DanjiWake"] = "%from 的手牌数(%arg)多于体力值(%arg2)，且本局主公为曹操，达到【单骑】的觉醒条件",
 	["$danji"] = "吾兄待我甚厚，誓以共死，今往投之，望曹公见谅。",
-
-	["#sp_caiwenji"] = "金璧之才",
-	["sp_caiwenji"] = "SP蔡文姬",
-	["&sp_caiwenji"] = "蔡文姬",
-	["illustrator:sp_caiwenji"] = "木美人",
-	["guixiang"] = "归乡",
-	[":guixiang"] = "<b>限定技</b>，游戏开始时，你可以选择变身为SP蔡文姬，势力为魏",
-	["cv:sp_caiwenji"] = "呼呼",
-	
-	["#sp_jiaxu"] = "算无遗策",
-	["sp_jiaxu"] = "SP贾诩",
-	["&sp_jiaxu"] = "贾诩",
-	["illustrator:sp_jiaxu"] = "雪君S",
-	["guiwei"] = "归魏",
-	[":guiwei"] = "<b>限定技</b>，游戏开始时，你可以选择变身为SP贾诩，势力为魏",
-	["cv:sp_jiaxu"] = "落凤一箭",
-	
-	["#sp_pangde"] = "枱榇之悟",
-	["sp_pangde"] = "SP庞德",
-	["&sp_pangde"] = "庞德",
-	["illustrator:sp_pangde"] = "天空之城",
-	["pangde_guiwei"] = "归魏",
-	[":pangde_guiwei"] = "<b>限定技</b>，游戏开始时，你可以选择变身为SP庞德，势力为魏",
-	["cv:sp_pangde"] = "Glory",
-
-	["#sp_machao"] = "西凉的猛狮",
-	["sp_machao"] = "SP马超",
-	["&sp_machao"] = "马超",
-	["illustrator:sp_machao"] = "天空之城",
-	["fanqun"] = "返群",
-	[":fanqun"] = "<b>限定技</b>，游戏开始时，你可以选择变身为SP马超，势力为群",
+	["$DanjiAnimate"] = "吾兄待我甚厚，誓以共死，\
+今往投之，望曹公见谅。",
 
 	["#caohong"] = "福将",
 	["caohong"] = "曹洪",
@@ -112,7 +67,7 @@ return {
 武器牌：弃置与该角色距离为1的一名角色区域中的一张牌；\
 防具牌：该角色摸一张牌；\
 坐骑牌：该角色回复一点体力。",
-	["@yuanhu-equip"] = "请使用技能【援护】",
+	["@yuanhu-equip"] = "你可以发动“援护”",
 	["~yuanhu"] = "选择一张装备牌→选择一名角色→点击确定",
 	["$yuanhu1"] = "持吾兵戈，随我杀敌！", --武器
 	["$yuanhu2"] = "汝今势微，吾当助汝。", --防具
@@ -138,7 +93,16 @@ return {
 	["$huxiao2"] = "刀行如流水，杀你个措手不及！",
 	["$huxiao3"] = "紫髯老贼！还吾父命来！",              -- for sunquan
 	["$wuji"] = "武圣虽死，血脉尚存。先父佑我，再现武魂！",
-	--["~guanyinping"] = "父亲……",
+	["$WujiAnimate"] = "武圣虽死，血脉尚存。\
+先父佑我，再现武魂！",
+	["~guanyinping"] = "父亲……",
+	
+	["#xiahouba"] = "棘途壮志",
+	["xiahouba"] = "夏侯霸",
+	["illustrator:xiahouba"] = "熊猫探员",
+	["baobian"] = "豹变",
+	[":baobian"] = "<b>锁定技</b>，若你的体力值为3或更少，你视为拥有技能“挑衅”;若你的体力值为2或更少;你视为拥有技能“咆哮”;若你的体力值为1，你视为拥有技能“神速”。",
+
 	
 	["#chenlin"] = "破竹之咒",
 	["chenlin"] = "陈琳",
@@ -148,7 +112,7 @@ return {
 	[":bifa"] = "回合结束阶段开始时，你可以将一张手牌背面朝下移出游戏并选择一名其他角色。该角色的回合开始时，其观看此牌并选择一项：1、交给你一张与此牌同类别的手牌，然后获得此牌。2、将此牌置入弃牌堆，然后失去1点体力。\
 ◆在目标角色执行【笔伐】的效果前，你不可以再次对其发动【笔伐】。\
 ◆目标角色在执行【笔伐】的效果前死亡，在弃置其区域里所有的牌的同时将此牌置入弃牌堆。",
-	["@bifa-remove"] = "你可以发动【笔伐】",
+	["@bifa-remove"] = "你可以发动“笔伐”",
 	["~bifa"] = "选择一张手牌→选择一名其他角色→点击确定",
 	["@bifa-give"] = "请交给目标角色一张类型相同的手牌",
 	["songci"] = "颂词",
@@ -161,6 +125,139 @@ return {
 	["$songci2"] = "汝众违旅叛，当有此报！",             --discardCards
 	--["~chenlin"] = "文未达意，贼不伏诛，吾之过也……",
 	
+	["#lingju"] = "情随梦逝",
+	["lingju"] = "灵雎",
+	["illustrator:lingju"] = "木美人",
+	["designer:lingju"] = "韩旭",
+	["cv:lingju"] = "蒲小猫",
+	["jieyuan"] = "竭缘",
+	[":jieyuan"] = "当你对一名其他角色造成伤害时，若其体力值大于或等于你的体力值，你可弃置一张黑色手牌令此伤害+1；当你受到一名其他角色造成的伤害时，若其体力值大于或等于你的体力值，你可弃置一张红色手牌令此伤害-1",
+	["@JieyuanIncrease"] = "你可以弃一张黑色手牌令此伤害+1",
+	["@JieyuanDecrease"] = "你可以弃一张红色手牌令此伤害-1",
+	["#JieyuanIncrease"] = "%from 发动了技能【竭缘】，伤害点数从 %arg 点增加至 %arg2 点",
+	["#JieyuanDecrease"] = "%from 发动了技能【竭缘】，伤害点数从 %arg 点减少至 %arg2 点",
+	["$jieyuan1"] = "我与君缘尽于此!",
+	["$jieyuan2"] = "君如何下得了手?",
+	["fenxin"] = "焚心",
+	[":fenxin"] = "<b>限定技</b>，当你杀死一名非主公角色时，在其翻开身份牌之前，你可以与该角色交换身份牌。（你的身份为主公时不能发动此技能。）",
+	["@burnheart"] = "焚心",
+	["$jieyuan1"] = "权谋一世，剑指曹贼！",
+	["$jieyuan2"] = "虽有谋，亦有情。",
+	["$fenxin"] = "天下与我何干？",
+	["$FenxinAnimate"] = "天下与我何干？",
+	["~lingju"] = "魏王……",
+	
+	["sp_diaochan"] = "SP貂蝉",
+	["&sp_diaochan"] = "貂蝉",
+	["illustrator:sp_diaochan"] = "巴萨小马",
+	["cv_diaochan:convert"] = "你可以替换为SP貂蝉或台版貂蝉或国战貂蝉",
+	["cv_diaochan:sp_diaochan"] = "SP",
+	["cv_diaochan:tw_diaochan"] = "台湾版",
+	["cv_diaochan:heg_diaochan"] = "国战版",
+
+	["#sp_sunshangxiang"] = "梦醉良缘",
+	["sp_sunshangxiang"] = "SP孙尚香",
+	["&sp_sunshangxiang"] = "孙尚香",
+	["illustrator:sp_sunshangxiang"] = "木美人",
+	["cv_sunshangxiang:convert"] = "你可以替换为蜀势力SP孙尚香",
+
+	["#sp_pangde"] = "抬榇之悟",
+	["sp_pangde"] = "SP庞德",
+	["&sp_pangde"] = "庞德",
+	["illustrator:sp_pangde"] = "天空之城",
+	["cv_pangde:convert"] = "你可以替换为魏势力SP庞德",
+
+	["#sp_caiwenji"] = "金璧之才",
+	["sp_caiwenji"] = "SP蔡文姬",
+	["&sp_caiwenji"] = "蔡文姬",
+	["illustrator:sp_caiwenji"] = "木美人",
+	["cv_caiwenji:convert"] = "你可以替换为魏势力SP蔡文姬",
+
+	["#sp_machao"] = "西凉的猛狮",
+	["sp_machao"] = "SP马超",
+	["&sp_machao"] = "马超",
+	["illustrator:sp_machao"] = "天空之城",
+	["cv_machao:convert"] = "你可以替换为群雄势力SP马超或台版马超",
+	["cv_machao:sp_machao"] = "SP",
+	["cv_machao:tw_machao"] = "台湾版",
+
+	["#sp_jiaxu"] = "算无遗策",
+	["sp_jiaxu"] = "SP贾诩",
+	["&sp_jiaxu"] = "贾诩",
+	["illustrator:sp_jiaxu"] = "雪君S",
+	["cv_jiaxu:convert"] = "你可以替换为魏势力SP贾诩",
+
+	["sp_zhenji"] = "SP甄姬",
+	["&sp_zhenji"] = "甄姬",
+	["illustrator:sp_zhenji"] = "白姥姥",
+	["cv_zhenji:convert"] = "你可以替换为SP甄姬或台版甄姬或国战甄姬",
+	["cv_zhenji:heg_zhenji"] = "国战版",
+	["cv_zhenji:tw_zhenji"] = "台湾版",
+	["cv_zhenji:sp_zhenji"] = "SP",
+
+	["tw_diaochan"] = "台版貂蝉",
+	["&tw_diaochan"] = "貂蝉",
+	["illustrator:tw_diaochan"] = "陳俊佐",
+
+	["tw_yuanshu"] = "台版袁术",
+	["&tw_yuanshu"] = "袁术", 
+	["cv_yuanshu:convert"] = "你可以替换为台版袁术",
+	["illustrator:tw_yuanshu"] = "湯翔麟",
+
+	["tw_zhaoyun"] = "台版赵云",
+	["&tw_zhaoyun"] = "赵云", 
+	["illustrator:tw_zhaoyun"] = "湯翔麟",
+	["cv_zhaoyun:convert"] = "你可以替换为台版赵云",
+
+	["tw_daqiao"] = "台版大乔",
+	["&tw_daqiao"] = "大乔", 
+	["illustrator:tw_daqiao"] = "玄兔",
+	["cv_daqiao:convert"] = "你可以替换为王战大乔或台版大乔",
+	["cv_daqiao:wz_daqiao"] = "王战版",
+	["cv_daqiao:tw_daqiao"] = "台湾版",
+
+	["tw_zhenji"] = "台版甄姬",
+	["&tw_zhenji"] = "甄姬", 
+	["illustrator:tw_zhenji"] = "DM添",
+
+	["tw_machao"] = "台版马超",
+	["&tw_machao"] = "马超", 
+	["illustrator:tw_machao"] = "greey",
+
+	["tw_ganning"] = "台版甘宁",
+	["&tw_ganning"] = "甘宁", 
+	["illustrator:tw_ganning"] = "greey",
+	["cv_ganning:convert"] = "你可以替换为台版甘宁",
+
+	["tw_lvbu"] = "台版吕布",
+	["&tw_lvbu"] = "吕布", 
+	["illustrator:tw_lvbu"] = "焚烧的大葱",
+	["cv_lvbu:convert"] = "你可以替换为国战吕布或台版吕布",
+	["cv_lvbu:heg_lvbu"] = "国战版",
+	["cv_lvbu:tw_lvbu"] = "台湾版",
+
+	["wz_daqiao"] = "王战大乔",
+	["&wz_daqiao"] = "大乔", 
+	["illustrator:wz_daqiao"] = "Natsu",
+
+	["wz_xiaoqiao"] = "王战小乔",
+	["&wz_xiaoqiao"] = "小乔", 
+	["illustrator:wz_xiaoqiao"] = "Natsu",
+	["cv_xiaoqiao:convert"] = "你可以替换为王战小乔或国战小乔",
+	["cv_xiaoqiao"] = "SP替换",
+	["cv_xiaoqiao:wz_xiaoqiao"] = "王战版",
+	["cv_xiaoqiao:heg_xiaoqiao"] = "国战版",
+
+	-- Hegemony SP
+	["hegemony_sp"] = "国战SP",
+
+	["sp_heg_zhouyu"] = "国战SP周瑜",
+	["&sp_heg_zhouyu"] = "周瑜",
+	["illustrator:sp_heg_zhouyu"] = "牧童的短笛",
+	["cv_zhouyu:convert"] = "你可以替换为国战周瑜或国战SP周瑜",
+	["cv_zhouyu:heg_zhouyu"] = "国战版",
+	["cv_zhouyu:sp_heg_zhouyu"] = "国战SP版",
+
 --hulao mode
 	["Hulaopass"] = "虎牢关模式",
 
@@ -201,6 +298,20 @@ return {
 	["SPMoonSpear"] = "SP银月枪",
 	[":SPMoonSpear"] = "装备牌·武器\
 攻击范围：３\
-武器特效：你的回合外，每当你使用或打出一张黑色手牌时，你可以令你攻击范围内的一名其他角色打出一张【闪】，否则受到你对其造成的1点伤害",
-	["@moon-spear-jink"] = "受到SP银月枪技能的影响，你必须打出一张【闪】",
+武器特效：你的回合外，每当你使用或打出一张黑色手牌时，你可以令你攻击范围内的一名其他角色选择一项：打出一张【闪】，或受到到你对其造成的1点伤害。",
+	["@moon-spear-jink"] = "【银月枪】效果被触发，请打出一张【闪】",
+
+--hegemony_sp
+	["hegemony_sp"] = "国战SP",
+	
+	["#sp_heg_zhouyu"] = "大都督",
+	["sp_heg_zhouyu"] = "国战SP周瑜",
+	["&sp_heg_zhouyu"] = "周瑜",
+	["illustrator:sp_heg_zhouyu"] = "牧童的短笛",
+	["cv_zhouyu:convert"] = "你可以替换为国战周瑜或台国战SP周瑜",
+	["cv_zhouyu"] = "SP替换",
+	["cv_zhouyu:heg_zhouyu"] = "国战版",
+	["cv_zhouyu:sp_heg_zhouyu"] = "国战SP版",
+	
+	["sp_convert"] = "SP替换",
 }

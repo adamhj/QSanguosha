@@ -16,6 +16,7 @@
 #include "couple-scenario.h"
 #include "boss-mode-scenario.h"
 #include "zombie-scenario.h"
+#include "fancheng-scenario.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -55,6 +56,7 @@ void Engine::_loadModScenarios()
 {
     addScenario(new GuanduScenario());
     addScenario(new CoupleScenario());
+    addScenario(new FanchengScenario());
     addScenario(new ZombieScenario());
     addScenario(new ImpasseScenario());
 }
@@ -65,10 +67,6 @@ void Engine::addPackage(const QString &name){
         addPackage(pack);
     else
         qWarning("Package %s cannot be loaded!", qPrintable(name));
-}
-
-static inline QVariant GetConfigFromLuaState(lua_State *L, const char *key){
-    return GetValueFromLuaState(L, "config", key);
 }
 
 Engine::Engine()
@@ -173,6 +171,8 @@ void Engine::addSkills(const QList<const Skill *> &all_skills){
             distance_skills << qobject_cast<const DistanceSkill *>(skill);
         else if(skill->inherits("MaxCardsSkill"))
             maxcards_skills << qobject_cast<const MaxCardsSkill *>(skill);
+        else if (skill->inherits("TargetModSkill"))
+            targetmod_skills << qobject_cast<const TargetModSkill *>(skill);
     }
 }
 
@@ -182,6 +182,10 @@ QList<const DistanceSkill *> Engine::getDistanceSkills() const{
 
 QList<const MaxCardsSkill *> Engine::getMaxCardsSkills() const{
     return maxcards_skills;
+}
+
+QList<const TargetModSkill *> Engine::getTargetModSkills() const{
+    return targetmod_skills;
 }
 
 void Engine::addPackage(Package *package){
@@ -262,6 +266,23 @@ const CardPattern *Engine::getPattern(const QString &name) const{
     if(ptn)return ptn;
 
     return new ExpPattern(name);
+}
+
+const Card::HandlingMethod Engine::getCardHandlingMethod(const QString &method_name) const{
+    if (method_name == "use")
+        return Card::MethodUse;
+    else if (method_name == "response")
+        return Card::MethodResponse;
+    else if (method_name == "discard")
+        return Card::MethodDiscard;
+    else if (method_name == "recast")
+        return Card::MethodRecast;
+    else if (method_name == "pindian")
+        return Card::MethodPindian;
+    else {
+        Q_ASSERT(false);
+        return Card::MethodNone;
+    }
 }
 
 QList<const Skill *> Engine::getRelatedSkills(const QString &skill_name) const{
@@ -443,7 +464,7 @@ SkillCard *Engine::cloneSkillCard(const QString &name) const{
 }
 
 QString Engine::getVersionNumber() const{
-    return "20121221";
+    return "20130224";
 }
 
 QString Engine::getVersion() const{
@@ -505,15 +526,27 @@ QColor Engine::getKingdomColor(const QString &kingdom) const{
     return color_map.value(kingdom);
 }
 
+QStringList Engine::getChattingEasyTexts() const{
+    static QStringList easy_texts;
+    if (easy_texts.isEmpty())
+        easy_texts = GetConfigFromLuaState(lua, "easy_text").toStringList();
+
+    return easy_texts;
+}
+
 QString Engine::getSetupString() const{
     int timeout = Config.OperationNoLimit ? 0 : Config.OperationTimeout;
     QString flags;
-    if(Config.FreeChoose)
+    if (Config.RandomSeat)
+        flags.append("R");
+    if (Config.EnableCheat)
+        flags.append("C");
+    if (Config.EnableCheat && Config.FreeChoose)
         flags.append("F");
     if(Config.Enable2ndGeneral)
         flags.append("S");
-    if(Config.EnableScene)
-        flags.append("C");
+    /*if(Config.EnableScene)
+        flags.append("C");*/ // !!NOT FIXED!!
     if(Config.EnableSame)
         flags.append("T");
     if(Config.EnableBasara)
@@ -658,16 +691,23 @@ int Engine::getCardCount() const{
     return cards.length();
 }
 
-QStringList Engine::getLords() const{
+QStringList Engine::getLords(bool contain_banned) const{
     QStringList lords;
 
     // add intrinsic lord
-    foreach(QString lord, lord_list){
+    foreach (QString lord, lord_list) {
         const General *general = generals.value(lord);
-        if(ban_package.contains(general->getPackage()))
+        if (ban_package.contains(general->getPackage()))
             continue;
-        if(Config.Enable2ndGeneral && BanPair::isBanned(general->objectName()))
-            continue;
+        if (!contain_banned) {
+            if (ServerInfo.GameMode.endsWith("p")
+               || ServerInfo.GameMode.endsWith("pd")
+               || ServerInfo.GameMode.endsWith("pz"))
+                if (Config.value("Banlist/Roles", "").toStringList().contains(lord))
+                    continue;
+            if (Config.Enable2ndGeneral && BanPair::isBanned(general->objectName()))
+                continue;
+        }
         lords << lord;
     }
 
@@ -677,10 +717,10 @@ QStringList Engine::getLords() const{
 QStringList Engine::getRandomLords() const{
     QStringList banlist_ban;
     if(Config.EnableBasara)
-        banlist_ban = Config.value("Banlist/basara").toStringList();
+        banlist_ban = Config.value("Banlist/Basara").toStringList();
 
     if(Config.GameMode == "zombie_mode")
-        banlist_ban.append(Config.value("Banlist/zombie").toStringList());
+        banlist_ban.append(Config.value("Banlist/Zombie").toStringList());
     else if((Config.GameMode.endsWith("p") ||
              Config.GameMode.endsWith("pz") ||
              Config.GameMode.endsWith("pd")))
@@ -724,8 +764,10 @@ QStringList Engine::getRandomLords() const{
     int extra = Config.value("NonLordMaxChoice", 2).toInt();
     if (lord_num == 0 && extra == 0)
         extra = 1;
-    for(i = 0; i < extra; i++)
+    for (i = 0; i < extra; i++) {
         lords << nonlord_list.at(i);
+        if (i == nonlord_list.length() - 1) break;
+    }
 
     return lords;
 }
@@ -892,9 +934,42 @@ int Engine::correctDistance(const Player *from, const Player *to) const{
 int Engine::correctMaxCards(const Player *target) const{
     int extra = 0;
 
-    foreach(const MaxCardsSkill *skill, maxcards_skills){
+    foreach (const MaxCardsSkill *skill, maxcards_skills)
         extra += skill->getExtra(target);
-    }
 
     return extra;
 }
+
+int Engine::correctCardTarget(const TargetModSkill::ModType type, const Player *from, const Card *card) const{
+    int x = 0;
+
+    if (type == TargetModSkill::Residue) {
+        foreach (const TargetModSkill *skill, targetmod_skills) {
+            ExpPattern p(skill->getPattern());
+            if (p.match(from, card)) {
+                int residue = skill->getResidueNum(from, card);
+                if (residue >= 998) return residue;
+                x += residue;
+            }
+        }
+    } else if (type == TargetModSkill::DistanceLimit) {
+        foreach (const TargetModSkill *skill, targetmod_skills) {
+            ExpPattern p(skill->getPattern());
+            if (p.match(from, card)) {
+                int distance_limit = skill->getDistanceLimit(from, card);
+                if (distance_limit >= 998) return distance_limit;
+                x += distance_limit;
+            }
+        }
+    } else if (type == TargetModSkill::ExtraTarget) {
+        foreach (const TargetModSkill *skill, targetmod_skills) {
+            ExpPattern p(skill->getPattern());
+            if (p.match(from, card)) {
+                x += skill->getExtraTargetNum(from, card);
+            }
+        }
+    }
+
+    return x;
+}
+

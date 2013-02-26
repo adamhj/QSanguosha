@@ -25,10 +25,31 @@ local function getBackToId(self, cards)
 	return cards_id
 end
 
+--for test--
+local function ShowGuanxingResult(self, up, bottom)
+	self.room:writeToConsole("----GuanxingResult----")
+	self.room:writeToConsole(string.format("up:%d", #up))
+	if #up > 0 then
+		for _,card in pairs(up) do
+			self.room:writeToConsole(string.format("(%d)%s[%s%d]", card:getId(), card:getClassName(), card:getSuitString(), card:getNumber()))
+		end
+	end
+	self.room:writeToConsole(string.format("down:%d", #bottom))
+	if #bottom > 0 then
+		for _,card in pairs(bottom) do
+			self.room:writeToConsole(string.format("(%d)%s[%s%d]", card:getId(), card:getClassName(), card:getSuitString(), card:getNumber()))
+		end
+	end
+	self.room:writeToConsole("----GuanxingEnd----")
+end
+--end--
 local function getOwnCards(self, up, bottom, next_judge)
 	self:sortByUseValue(bottom)
 	local has_slash = self:getCardsNum("Slash") > 0
 	local hasNext = false
+	local fuhun1, fuhun2
+	local shuangxiong
+	local has_big
 	for index, gcard in ipairs(bottom) do
 		if index == 3 then break end
 		if #next_judge > 0 then
@@ -36,27 +57,79 @@ local function getOwnCards(self, up, bottom, next_judge)
 			table.remove(bottom, index)
 			hasNext = true
 		else
-			if has_slash then 
-				if not gcard:isKindOf("Slash") then 
+			if self.player:hasSkill("fuhun") then				
+				if not fuhun1 and gcard:isRed() then
 					table.insert(up, gcard) 
 					table.remove(bottom, index)
+					fuhun1 = true
 				end
-			else
-				if gcard:isKindOf("Slash") then 
+				if not fuhun2 and gcard:isBlack() and isCard("Slash", gcard, self.player) then
 					table.insert(up, gcard) 
 					table.remove(bottom, index)
-					has_slash = true 
+					fuhun2 = true
+				end
+				if not fuhun2 and gcard:isBlack() and card:getTypeId() == sgs.Card_Equip then
+					table.insert(up, gcard) 
+					table.remove(bottom, index)
+					fuhun2 = true
+				end
+				if not fuhun2 and gcard:isBlack() then
+					table.insert(up, gcard) 
+					table.remove(bottom, index)
+					fuhun2 = true
+				end
+			elseif self.player:hasSkill("shuangxiong") and self.player:getHandcardNum() >= 3 then				
+				local rednum, blacknum = 0, 0
+				local cards = sgs.QList2Table(self.player:getHandcards())
+				for _, card in ipairs(cards) do
+					if card:isRed() then rednum = rednum +1 else blacknum = blacknum +1 end
+				end
+				if not shuangxiong and ((rednum > blacknum and gcard:isBlack()) or (blacknum > rednum and gcard:isRed())) 
+						and (isCard("Slash", gcard, self.player) or isCard("Duel", gcard, self.player)) then
+					table.insert(up, gcard) 
+					table.remove(bottom, index)
+					shuangxiong = true					
+				end
+				if not shuangxiong and ((rednum > blacknum and gcard:isBlack()) or (blacknum > rednum and gcard:isRed())) then
+					table.insert(up, gcard) 
+					table.remove(bottom, index)
+					shuangxiong = true					
+				end
+			elseif self:hasSkills("xianzhen|tianyi|dahe") then
+				local maxcard = self:getMaxCard(self.player)
+				has_big = maxcard and maxcard:getNumber() > 10
+				if not has_big and gcard:getNumber() > 10 then
+					table.insert(up, gcard) 
+					table.remove(bottom, index)
+					has_big = true
+				end
+				if isCard("Slash", gcard, self.player) then 
+					table.insert(up, gcard) 
+					table.remove(bottom, index)					
+				end				
+			else
+				if has_slash then 
+					if not gcard:isKindOf("Slash") then 
+						table.insert(up, gcard) 
+						table.remove(bottom, index)
+					end
+				else
+					if isCard("Slash", gcard, self.player) then 
+						table.insert(up, gcard) 
+						table.remove(bottom, index)
+						has_slash = true 
+					end
 				end
 			end
 		end
 	end
-	
+
 	if hasNext then
 		for _, gcard in ipairs(next_judge) do
 			table.insert(up, gcard) 
 		end
 	end
-	
+
 	return up, bottom
 end
 
@@ -103,6 +176,61 @@ local function GuanXing(self, cards)
 		end
 	--end
 	
+	--昭烈START--
+	local count = #bottom
+	if count > 0 then
+		local zhaolieFlag = false
+		if self:hasSkills("zhaolie", self.player) then
+			zhaolieFlag = sgs.ai_skill_invoke.zhaolie(self, nil)
+		end
+		if zhaolieFlag then 
+			local drawCount = 1 --自身摸牌数目，待完善
+			local basic = {}
+			local peach = {}
+			local not_basic = {}
+			for index, gcard in ipairs(bottom) do
+				if gcard:isKindOf("Peach") then
+					table.insert(peach, gcard)
+				elseif gcard:isKindOf("BasicCard") then
+					table.insert(basic, gcard)
+				else
+					table.insert(not_basic, gcard)
+				end
+			end
+			bottom = {}
+			for i=1, drawCount, 1 do
+				if self:isWeak() and #peach > 0 then
+					table.insert(up, peach[1])
+					table.remove(peach, 1)
+				elseif #basic > 0 then
+					table.insert(up, basic[1])
+					table.remove(basic, 1)
+				elseif #not_basic > 0 then
+					table.insert(up, not_basic[1])
+					table.remove(not_basic, 1)
+				end
+			end
+			if #not_basic > 0 then
+				for index, card in ipairs(not_basic) do
+					table.insert(up, card)
+				end
+			end
+			if #peach > 0 then
+				for _,peach in ipairs(peach) do
+					table.insert(bottom, peach)
+				end
+			end
+			if #basic > 0 then
+				for _,card in ipairs(basic) do
+					table.insert(bottom, card)
+				end
+			end
+			up = getBackToId(self, up)
+			bottom = getBackToId(self, bottom)
+			return up, bottom
+		end
+	end
+	--昭烈END--
 	local pos = 1
 	local luoshen_flag = false
 	local next_judge = {}

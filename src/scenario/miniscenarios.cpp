@@ -5,7 +5,8 @@
 
 const char* MiniScene::S_KEY_MINISCENE = "_mini_%1";
 const char* MiniSceneRule::S_EXTRA_OPTION_RANDOM_ROLES = "randomRoles";
-const QString MiniSceneRule::_S_DEFAULT_HERO = "caocao";
+const char *MiniSceneRule::S_EXTRA_OPTION_REST_IN_DISCARD_PILE = "restInDiscardPile";
+const QString MiniSceneRule::_S_DEFAULT_HERO = "sujiang";
 
 MiniSceneRule::MiniSceneRule(Scenario *scenario)
     :ScenarioRule(scenario)
@@ -106,12 +107,21 @@ bool MiniSceneRule::trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer 
             }
             room->broadcastInvoke("addHistory","pushPile");
         }
+        if (m_fixedDrawCards.length() > 0 && ex_options.contains(S_EXTRA_OPTION_REST_IN_DISCARD_PILE)) {
+            DummyCard *dummy = new DummyCard;
+            foreach (int id, drawPile) {
+                if (!m_fixedDrawCards.contains(id))
+                    dummy->addSubcard(id);
+            }
+            room->moveCardTo(dummy, NULL, Player::DiscardPile);
+            delete dummy;
+        }
 
         int i = 0, j = 0;
         QList<int> int_list;
         for (i = 0; i < players.length(); i++)
             int_list << i;
-        if (ex_options.contains("randomRoles"))
+        if (ex_options.contains(S_EXTRA_OPTION_RANDOM_ROLES))
             qShuffle(int_list);
         for (j = 0; j < players.length(); j++)
         {
@@ -202,24 +212,15 @@ bool MiniSceneRule::trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer 
             }
 
             str = this->players.at(i)["hand"];
-            if(str !=QString())
-            {
+            if (str != QString()) {
                 QStringList hands = str.split(",");
-                foreach(QString hand,hands)
-                {
-                    room->obtainCard(sp,hand.toInt());
-                }
-
-            }
-
-            QVariant v;
-            foreach(const TriggerSkill *skill, sp->getTriggerSkills()){
-                if(!skill->inherits("SPConvertSkill"))
-                    room->getThread()->addTriggerSkill(skill);
-                else continue;
-
-                if(skill->getTriggerEvents().contains(GameStart))
-                    skill->trigger(GameStart, room, sp, v);
+                room->setPlayerFlag(sp, "NoManjuan");               
+                DummyCard *dummy = new DummyCard;
+                foreach(QString hand, hands)
+                    dummy->addSubcard(hand.toInt());
+                room->obtainCard(sp, dummy);
+                dummy->deleteLater();
+                room->setPlayerFlag(sp, "-NoManjuan");
             }
 
             QString skills = this->players.at(i)["acquireSkills"];
@@ -248,9 +249,11 @@ bool MiniSceneRule::trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer 
 
             str = this->players[i]["draw"];
             if (str == QString()) str = "4";
-            room->drawCards(sp,str.toInt());
-            if(this->players[i]["marks"] != QString())
-            {
+            room->setPlayerFlag(sp, "NoManjuan");
+            room->drawCards(sp, str.toInt());
+            room->setPlayerFlag(sp, "-NoManjuan");
+
+            if (this->players[i]["marks"] != QString()) {
                 QStringList marks = this->players[i]["marks"].split(",");
                 foreach(QString qs,marks)
                 {

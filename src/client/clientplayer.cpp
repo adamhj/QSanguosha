@@ -114,12 +114,13 @@ void ClientPlayer::changePile(const QString &name, bool add, QList<int> card_ids
         piles[name].append(card_ids);
     else
         foreach (int card_id, card_ids) {
-            //todo: Fix it !!!
-            int length = piles[name].length();
+            if (piles[name].isEmpty()) break;
             if (piles[name].contains(Card::S_UNKNOWN_CARD_ID) && !piles[name].contains(card_id))
                 piles[name].removeOne(Card::S_UNKNOWN_CARD_ID);
-            else piles[name].removeOne(card_id);
-            if (length == piles[name].length() && name == "bifa") piles[name].takeFirst();
+            else if (piles[name].contains(card_id))
+                piles[name].removeOne(card_id);
+            else
+                piles[name].takeLast(); // bifa
         }
 
     if (!name.startsWith("#"))

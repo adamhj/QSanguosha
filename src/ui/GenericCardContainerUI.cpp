@@ -149,8 +149,7 @@ QPixmap PlayerCardContainer::_getPixmap(const QString &key, const QString &sArg)
         if (G_ROOM_SKIN.isImageKeyDefined(rKey))
             return G_ROOM_SKIN.getPixmap(rKey); // first try "%1key%2 = ...", %1 = "photo", %2 = sArg
     
-        rKey = key.arg(getResourceKeyName()).arg(QSanRoomSkin::S_SKIN_KEY_DEFAULT);
-        Q_ASSERT(G_ROOM_SKIN.isImageKeyDefined(rKey));
+        rKey = key.arg(getResourceKeyName());
         return G_ROOM_SKIN.getPixmap(rKey, sArg); // then try "%1key = ..."
     }
     else 
@@ -221,17 +220,19 @@ void PlayerCardContainer::updateAvatar()
     }
     if (general != NULL) {
         _m_avatarArea->setToolTip(general->getSkillDescription());
-        QPixmap avatarIcon = _getAvatarIcon(general->objectName());
+        QString name = general->objectName();
+        if (name == "luboyan" && m_player->isFemale())
+            name = "luboyanf";
+        QPixmap avatarIcon = _getAvatarIcon(name);
         _paintPixmap(_m_avatarIcon, _m_layout->m_avatarArea, avatarIcon, _getAvatarParent());
         // this is just avatar general, perhaps game has not started yet.
         if (m_player->getGeneral() != NULL) {
             QString kingdom = m_player->getKingdom();
             _paintPixmap(_m_kingdomIcon, _m_layout->m_kingdomIconArea,
-                         G_ROOM_SKIN.getPixmap(QString(QSanRoomSkin::S_SKIN_KEY_KINGDOM_ICON).arg(kingdom)),
+                         G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_ICON, kingdom),
                          this->_getAvatarParent());
             _paintPixmap(_m_kingdomColorMaskIcon, _m_layout->m_kingdomMaskArea,
-                         G_ROOM_SKIN.getPixmap(QString(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK)
-                                               .arg(kingdom)),
+                         G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK, kingdom),
                          this->_getAvatarParent());
             QString name = Sanguosha->translate("&" + general->objectName());
             if (name.startsWith("&"))
@@ -319,43 +320,38 @@ void PlayerCardContainer::updateHp()
     _m_hpBox->setHp(m_player->getHp());
     _m_hpBox->setMaxHp(m_player->getMaxHp());
     _m_hpBox->update();
-    _m_saveMeIcon->setVisible(m_player->getHp() <= 0 && m_player->getMaxHp() > 0);
+    if (m_player->getHp() > 0 || m_player->getMaxHp() == 0)
+        _m_saveMeIcon->setVisible(false);
 }
 
 static bool CompareByNumber(const Card *card1, const Card *card2){
     return card1->getNumber() < card2->getNumber();
 }
 
-void PlayerCardContainer::updatePile(const QString &pile_name)
-{
-    // retrieve menu and create a new pile if necessary
-    QMenu* menu;
-    QPushButton* button;
-    if (!_m_privatePiles.contains(pile_name))
-    {
-        button = new QPushButton;
-        button->setObjectName(pile_name);
-        button->setProperty("private_pile", "true");
-        QGraphicsProxyWidget *button_widget = new QGraphicsProxyWidget(_getPileParent());
-        button_widget->setWidget(button);
-        _m_privatePiles[pile_name] = button_widget;        
-    }
-    else
-    {        
-        button = (QPushButton*)(_m_privatePiles[pile_name]->widget());
-        menu = button->menu();
-    }
-    
-        
-    ClientPlayer* player = (ClientPlayer*)sender();
+void PlayerCardContainer::updatePile(const QString &pile_name) {
+    ClientPlayer *player = (ClientPlayer *)sender();
     const QList<int> &pile = player->getPile(pile_name);
-    if (pile.size() == 0)
-    {
-        delete _m_privatePiles[pile_name];
-        _m_privatePiles.remove(pile_name);
-    }
-    else
-    {
+    if (pile.size() == 0) {
+        if (_m_privatePiles.contains(pile_name)) {
+            delete _m_privatePiles[pile_name];
+            _m_privatePiles.remove(pile_name);
+        }
+    } else {
+        // retrieve menu and create a new pile if necessary
+        QMenu* menu;
+        QPushButton *button;
+        if (!_m_privatePiles.contains(pile_name)) {
+            button = new QPushButton;
+            button->setObjectName(pile_name);
+            button->setProperty("private_pile", "true");
+            QGraphicsProxyWidget *button_widget = new QGraphicsProxyWidget(_getPileParent());
+            button_widget->setWidget(button);
+            _m_privatePiles[pile_name] = button_widget;
+        } else {
+            button = (QPushButton *)(_m_privatePiles[pile_name]->widget());
+            menu = button->menu();
+        }
+
         button->setText(QString("%1(%2)").arg(Sanguosha->translate(pile_name)).arg(pile.length()));
         menu = new QMenu(button);
         menu->setProperty("private_pile", "true");
@@ -372,9 +368,10 @@ void PlayerCardContainer::updatePile(const QString &pile_name)
         foreach (const Card *card, cards)
             menu->addAction(G_ROOM_SKIN.getCardSuitPixmap(card->getSuit()), card->getFullName());
 
-        if (cards.count() > 0) button->setMenu(menu);
-        else
-        {
+        int length = cards.count();
+        if (length > 0)
+            button->setMenu(menu);
+        else {
             delete menu;
             button->setMenu(NULL);
         }
@@ -383,10 +380,9 @@ void PlayerCardContainer::updatePile(const QString &pile_name)
     QPoint start = _m_layout->m_privatePileStartPos;
     QPoint step = _m_layout->m_privatePileStep;
     QSize size = _m_layout->m_privatePileButtonSize;
-    QList<QGraphicsProxyWidget*> widgets = _m_privatePiles.values();
-    for (int i = 0; i < widgets.length(); i++)
-    {
-        QGraphicsProxyWidget* widget = widgets[i];
+    QList<QGraphicsProxyWidget *> widgets = _m_privatePiles.values();
+    for (int i = 0; i < widgets.length(); i++) {
+        QGraphicsProxyWidget *widget = widgets[i];
         widget->setPos(start + i * step);
         widget->resize(size);
     }
@@ -577,13 +573,12 @@ void PlayerCardContainer::addDelayedTricks(QList<CardItem*> &tricks)
         _paintPixmap(item, start, G_ROOM_SKIN.getCardJudgeIconPixmap(trick->getCard()->objectName()));
         trick->setHomeOpacity(0.0);
         trick->setHomePos(start.center());
-        /*QString toolTip;
-        if(trick->getCard()->isVirtualCard())
-            toolTip = Sanguosha->getCard(trick->getCard()->getSubcards().at(0))->getDescription();
-        else
-            toolTip = trick->getCard()->getDescription();*/
-        QString toolTip = Sanguosha->getEngineCard(trick->getCard()->getEffectiveId())->getDescription();
-        trick->setToolTip(toolTip);
+        const Card *card = Sanguosha->getEngineCard(trick->getCard()->getEffectiveId());
+        QString toolTip = QString("<b>%1 [</b><img src='image/system/log/%2.png' height = 12/><b>%3]</b>")
+                                  .arg(Sanguosha->translate(card->objectName()))
+                                  .arg(card->getSuitString())
+                                  .arg(card->getNumber());
+        item->setToolTip(toolTip);
         _m_judgeCards.append(trick);
         _m_judgeIcons.append(item);
     }
@@ -757,7 +752,9 @@ void PlayerCardContainer::addEquips(QList<CardItem*> &equips)
      _m_layout->m_extraSkillFont.paintText(_m_extraSkillText, _m_layout->m_extraSkillTextArea, Qt::AlignCenter,
                                            Sanguosha->translate(skillName).left(2));
      _m_extraSkillText->show();
-     _m_extraSkillBg->setToolTip(Sanguosha->getSkill(skillName)->getDescription());
+     const Skill *skill = Sanguosha->getSkill(skillName);
+     if (skill)
+         _m_extraSkillBg->setToolTip(skill->getDescription());
      _adjustComponentZValues();
  }
 
@@ -1006,11 +1003,10 @@ void PlayerCardContainer::mousePressEvent(QGraphicsSceneMouseEvent *event)
     // we need to override QGraphicsItem's selecting behaviours.
 }
 
-void PlayerCardContainer::updateVotes(){
-    if (!isSelected() || _m_votesGot <= 1)
+void PlayerCardContainer::updateVotes(bool need_select, bool display_1) {
+    if ((need_select && !isSelected()) || _m_votesGot < 1 || (!display_1 && _m_votesGot == 1))
         _clearPixmap(_m_votesItem);
-    else 
-    {
+    else {
         _paintPixmap(_m_votesItem, _m_layout->m_votesIconRegion,
                      _getPixmap(QSanRoomSkin::S_SKIN_KEY_VOTES_NUMBER, QString::number(_m_votesGot)),
                      _getAvatarParent());

@@ -1,4 +1,5 @@
 #include "skill.h"
+#include "settings.h"
 #include "engine.h"
 #include "player.h"
 #include "room.h"
@@ -9,7 +10,7 @@
 #include <QFile>
 
 Skill::Skill(const QString &name, Frequency frequency)
-    :frequency(frequency), default_choice("no")
+    :frequency(frequency), default_choice("no"), attached_lord_skill(false)
 {
     static QChar lord_symbol('$');
 
@@ -28,6 +29,10 @@ bool Skill::isLordSkill() const{
     return lord_skill;
 }
 
+bool Skill::isAttachedLordSkill() const{
+    return attached_lord_skill;
+}
+
 QString Skill::getDescription() const{
     QString des_src = Sanguosha->translate(":" + objectName());
     if(des_src == ":" + objectName())
@@ -42,22 +47,8 @@ QString Skill::getNotice(int index) const{
     return Sanguosha->translate(QString("~%1%2").arg(objectName()).arg(index));
 }
 
-QString Skill::getText() const{
-    QString skill_name = Sanguosha->translate(objectName());
-
-    switch(frequency){
-    case Skill::NotFrequent:
-    case Skill::Frequent: break;
-    case Skill::Limited: skill_name.append(tr(" [Limited]")); break;
-    case Skill::Compulsory: skill_name.append(tr(" [Compulsory]")); break;
-    case Skill::Wake: skill_name.append(tr(" [Wake]")); break;
-    }
-
-    return skill_name;
-}
-
 bool Skill::isVisible() const{
-    return ! objectName().startsWith("#");
+    return !objectName().startsWith("#");
 }
 
 QString Skill::getDefaultChoice(ServerPlayer *) const{
@@ -143,10 +134,10 @@ ViewAsSkill::ViewAsSkill(const QString &name)
 
 bool ViewAsSkill::isAvailable(const Player* invoker,
                               CardUseStruct::CardUseReason reason, 
-                              const QString &pattern) const
-{
-    switch(reason) 
-    {
+                              const QString &pattern) const{
+    if (!invoker->hasSkill(objectName()))
+        return false;
+    switch (reason) {
     case CardUseStruct::CARD_USE_REASON_PLAY: return isEnabledAtPlay(invoker);
     case CardUseStruct::CARD_USE_REASON_RESPONSE: return isEnabledAtResponse(invoker, pattern);
     default:
@@ -239,9 +230,9 @@ QList<TriggerEvent> TriggerSkill::getTriggerEvents() const{
 
 int TriggerSkill::getPriority() const{
     switch(frequency){
-    case Wake: return 2;
+    case Wake: return 3;
     default:
-        return 1;
+        return 2;
     }
 }
 
@@ -256,7 +247,7 @@ ScenarioRule::ScenarioRule(Scenario *scenario)
 }
 
 int ScenarioRule::getPriority() const{
-    return 3;
+    return 0;
 }
 
 bool ScenarioRule::triggerable(const ServerPlayer *) const{
@@ -267,10 +258,6 @@ MasochismSkill::MasochismSkill(const QString &name)
     :TriggerSkill(name)
 {
     events << Damaged;
-}
-
-int MasochismSkill::getPriority() const{
-    return 1;
 }
 
 bool MasochismSkill::trigger(TriggerEvent, Room* room, ServerPlayer *player, QVariant &data) const{
@@ -315,42 +302,54 @@ bool GameStartSkill::trigger(TriggerEvent, Room* room, ServerPlayer *player, QVa
     return false;
 }
 
-SPConvertSkill::SPConvertSkill(const QString &name, const QString &from, const QString &to)
-    :GameStartSkill(name), from(from), to(to)
+SPConvertSkill::SPConvertSkill(const QString &from, const QString &to)
+    : GameStartSkill(QString("cv_%1").arg(from)), from(from), to(to)
 {
-    frequency = Limited;
+    to_list = to.split("+");
 }
 
 bool SPConvertSkill::triggerable(const ServerPlayer *target) const{
     if (target == NULL) return false;
-    QString package = Sanguosha->getGeneral(to)->getPackage();
-    if(Sanguosha->getBanPackages().contains(package)) return false;
-    return GameStartSkill::triggerable(target) && target->getGeneralName() == from;
+    if (!Config.value("EnableSPConvert", true).toBool()) return false;
+    bool canInvoke = ServerInfo.GameMode.endsWith("p") || ServerInfo.GameMode.endsWith("pd")
+                     || ServerInfo.GameMode.endsWith("pz");
+    if (!canInvoke) return false;
+    bool available = false;
+    foreach (QString to_gen, to_list) {
+        const General *gen = Sanguosha->getGeneral(to_gen);
+        if (gen && !Config.value("Ban/Roles", "").toStringList().contains(to_gen)
+            && !Sanguosha->getBanPackages().contains(gen->getPackage())) {
+            available = true;
+            break;
+        }
+    }
+    return GameStartSkill::triggerable(target) && target->getGeneralName() == from && available && canInvoke;
 }
 
 void SPConvertSkill::onGameStart(ServerPlayer *player) const{
-    if(player->askForSkillInvoke(objectName())){
+    QVariant data = "convert";
+    if (player->askForSkillInvoke(objectName(), data)) {
         Room *room = player->getRoom();
-
-        // @todo: this is a dirty hack for now. If both generals have the same
-        // SP convert skill, then we are in trouble.
-        // If the skill belongs to the second general, then don't bother.
-        if (!player->getGeneral()->hasSkill(objectName()) &&
-            player->getGeneral2() != NULL &&
-            player->getGeneral2()->hasSkill(objectName()))
-        {
-            room->setPlayerProperty(player, "general2", to);
+        QStringList choicelist;
+        foreach (QString to_gen, to_list) {
+            const General *gen = Sanguosha->getGeneral(to_gen);
+            if (gen && !Config.value("Ban/Roles", "").toStringList().contains(to_gen)
+                    && !Sanguosha->getBanPackages().contains(gen->getPackage()))
+                choicelist << to_gen;
         }
-        else
-        {
-            room->setPlayerProperty(player, "general", to);
-        }
+        QString to_cv = room->askForChoice(player, objectName(), choicelist.join("+"));
 
-        const General *general = Sanguosha->getGeneral(to);
+        LogMessage log;
+        log.type = "#Transfigure";
+        log.from = player;
+        log.arg = to_cv;
+        room->sendLog(log);
+        room->setPlayerProperty(player, "general", to_cv);
+
+        const General *general = Sanguosha->getGeneral(to_cv);
         const QString kingdom = general->getKingdom();
-        if(kingdom != player->getKingdom())
+        if (kingdom != player->getKingdom())
             room->setPlayerProperty(player, "kingdom", kingdom);
-
     }
 }
 
@@ -367,6 +366,64 @@ DistanceSkill::DistanceSkill(const QString &name)
 MaxCardsSkill::MaxCardsSkill(const QString &name)
     :Skill(name, Skill::Compulsory)
 {
+}
+
+TargetModSkill::TargetModSkill(const QString &name)
+    : Skill(name, Skill::Compulsory), pattern("Slash")
+{
+}
+
+QString TargetModSkill::getPattern() const{
+    return pattern;
+}
+
+int TargetModSkill::getResidueNum(const Player *, const Card *) const{
+    return 0;
+}
+
+int TargetModSkill::getDistanceLimit(const Player *, const Card *) const{
+    return 0;
+}
+
+int TargetModSkill::getExtraTargetNum(const Player *, const Card *) const{
+    return 0;
+}
+
+SlashNoDistanceLimitSkill::SlashNoDistanceLimitSkill(const QString &skill_name)
+    : TargetModSkill(QString("#%1-slash-ndl").arg(skill_name)), name(skill_name)
+{
+}
+
+int SlashNoDistanceLimitSkill::getDistanceLimit(const Player *from, const Card *card) const{
+    if (from->hasSkill(name) && card->getSkillName() == name)
+        return 1000;
+    else
+        return 0;
+}
+
+FakeMoveSkill::FakeMoveSkill(const QString &name, FakeCondition condition)
+    : TriggerSkill(QString("#%1-fake-move").arg(name)), name(name), condition(condition)
+{
+    events << CardsMoving << CardsMoveOneTime;
+}
+
+int FakeMoveSkill::getPriority() const{
+    return 10;
+}
+
+bool FakeMoveSkill::triggerable(const ServerPlayer *target) const{
+    return target != NULL;
+}
+
+bool FakeMoveSkill::trigger(TriggerEvent, Room *room, ServerPlayer *player, QVariant &) const{
+    QString flag = QString("%1_InTempMoving").arg(name);
+    if (condition == Global) {
+        foreach (ServerPlayer *p, room->getAllPlayers())
+            if (p->hasFlag(flag)) return true;
+    } else if (condition == SourceOnly) {
+        if (player->hasFlag(flag)) return true;
+    }
+    return false;
 }
 
 WeaponSkill::WeaponSkill(const QString &name)
@@ -396,5 +453,5 @@ MarkAssignSkill::MarkAssignSkill(const QString &mark, int n)
 }
 
 void MarkAssignSkill::onGameStart(ServerPlayer *player) const{
-    player->gainMark(mark_name, n);
+    player->getRoom()->setPlayerMark(player, mark_name, player->getMark(mark_name) + n);
 }

@@ -52,6 +52,7 @@ public:
     QStringList getExtensions() const;
     QStringList getKingdoms() const;
     QColor getKingdomColor(const QString &kingdom) const;
+    QStringList getChattingEasyTexts() const;
     QString getSetupString() const;
 
     QMap<QString, QString> getAvailableModes() const;
@@ -62,6 +63,7 @@ public:
     int getRoleIndex() const;
 
     const CardPattern *getPattern(const QString &name) const;
+    const Card::HandlingMethod getCardHandlingMethod(const QString &method_name) const;
     QList<const Skill *> getRelatedSkills(const QString &skill_name) const;
 
     QStringList getModScenarioNames() const;
@@ -78,6 +80,7 @@ public:
     const ViewAsSkill *getViewAsSkill(const QString &skill_name) const;
     QList<const DistanceSkill *> getDistanceSkills() const;
     QList<const MaxCardsSkill *> getMaxCardsSkills() const;
+    QList<const TargetModSkill *> getTargetModSkills() const;
     void addSkills(const QList<const Skill *> &skills);
 
     int getCardCount() const;
@@ -86,7 +89,7 @@ public:
     Card *getCard(int cardId);
     WrappedCard *getWrappedCard(int cardId);
 
-    QStringList getLords() const;
+    QStringList getLords(bool contain_banned = false) const;
     QStringList getRandomLords() const;
     QStringList getRandomGenerals(int count, const QSet<QString> &ban_set = QSet<QString>()) const;
     QList<int> getRandomCards() const;
@@ -100,12 +103,13 @@ public:
     const ProhibitSkill *isProhibited(const Player *from, const Player *to, const Card *card) const;
     int correctDistance(const Player *from, const Player *to) const;
     int correctMaxCards(const Player *target) const;
+    int correctCardTarget(const TargetModSkill::ModType type, const Player *from, const Card *card) const;
 
-    void registerRoom(QObject* room);
+    void registerRoom(QObject *room);
     void unregisterRoom();
-    QObject* currentRoomObject();
-    Room* currentRoom();
-    RoomState* currentRoomState();
+    QObject *currentRoomObject();
+    Room *currentRoom();
+    RoomState *currentRoomState();
 
 private:
     void _loadMiniScenarios();
@@ -126,8 +130,9 @@ private:
     QList<const ProhibitSkill *> prohibit_skills;
     QList<const DistanceSkill *> distance_skills;
     QList<const MaxCardsSkill *> maxcards_skills;
+    QList<const TargetModSkill *> targetmod_skills;
 
-    QList<Card*> cards;
+    QList<Card *> cards;
     QStringList lord_list, nonlord_list;
     QSet<QString> ban_package;
     QHash<QString, Scenario *> m_scenarios;
@@ -136,6 +141,10 @@ private:
 
     lua_State *lua;
 };
+
+static inline QVariant GetConfigFromLuaState(lua_State *L, const char *key) {
+    return GetValueFromLuaState(L, "config", key);
+}
 
 extern Engine *Sanguosha;
 

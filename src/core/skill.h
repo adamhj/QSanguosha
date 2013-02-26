@@ -32,9 +32,9 @@ public:
 
     explicit Skill(const QString &name, Frequency frequent = NotFrequent);
     bool isLordSkill() const;
+    bool isAttachedLordSkill() const;
     QString getDescription() const;
     QString getNotice(int index) const;
-    QString getText() const;
     bool isVisible() const;
 
     virtual QString getDefaultChoice(ServerPlayer *player) const;
@@ -52,6 +52,7 @@ public:
 protected:
     Frequency frequency;
     QString default_choice;
+    bool attached_lord_skill;
 
 private:
     bool lord_skill;
@@ -141,7 +142,6 @@ class MasochismSkill: public TriggerSkill{
 public:
     MasochismSkill(const QString &name);
 
-    virtual int getPriority() const;
     virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
     virtual void onDamaged(ServerPlayer *target, const DamageStruct &damage) const = 0;
 };
@@ -172,21 +172,22 @@ class GameStartSkill: public TriggerSkill{
 public:
     GameStartSkill(const QString &name);
 
-    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
+    virtual bool trigger(TriggerEvent event, Room *room, ServerPlayer *player, QVariant &data) const;
     virtual void onGameStart(ServerPlayer *player) const = 0;
 };
 
-class SPConvertSkill: public GameStartSkill{
+class SPConvertSkill: public GameStartSkill {
     Q_OBJECT
 
 public:
-    SPConvertSkill(const QString &name, const QString &from, const QString &to);
+    SPConvertSkill(const QString &from, const QString &to);
 
     virtual bool triggerable(const ServerPlayer *target) const;
     virtual void onGameStart(ServerPlayer *player) const;
 
 private:
     QString from, to;
+    QStringList to_list;
 };
 
 class ProhibitSkill: public Skill{
@@ -214,6 +215,62 @@ public:
     MaxCardsSkill(const QString &name);
 
     virtual int getExtra(const Player *target) const = 0;
+};
+
+class TargetModSkill: public Skill {
+    Q_OBJECT
+    Q_ENUMS(ModType)
+
+public:
+    enum ModType {
+        Residue,
+        DistanceLimit,
+        ExtraTarget
+    };
+
+    TargetModSkill(const QString &name);
+    virtual QString getPattern() const;
+
+    virtual int getResidueNum(const Player *from, const Card *card) const;
+    virtual int getDistanceLimit(const Player *from, const Card *card) const;
+    virtual int getExtraTargetNum(const Player *from, const Card *card) const;
+
+protected:
+    QString pattern;
+};
+
+class SlashNoDistanceLimitSkill: public TargetModSkill {
+    Q_OBJECT
+
+public:
+    SlashNoDistanceLimitSkill(const QString &skill_name);
+
+    virtual int getDistanceLimit(const Player *from, const Card *card) const;
+
+protected:
+    QString name;
+};
+
+// a nasty way for 'fake moves'
+class FakeMoveSkill: public TriggerSkill {
+    Q_OBJECT
+    Q_ENUMS(FakeCondition)
+
+public:
+    enum FakeCondition {
+        Global,
+        SourceOnly
+    };
+
+    FakeMoveSkill(const QString &skillname, FakeCondition condition = Global);
+
+    virtual int getPriority() const;
+    virtual bool triggerable(const ServerPlayer *target) const;
+    virtual bool trigger(TriggerEvent event, Room *room, ServerPlayer *player, QVariant &data) const;
+
+private:
+    QString name;
+    FakeCondition condition;
 };
 
 class WeaponSkill: public TriggerSkill{

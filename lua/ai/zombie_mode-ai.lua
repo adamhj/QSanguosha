@@ -1,22 +1,39 @@
 if sgs.GetConfig("GameMode", ""):match("zombie") then
 	function sgs.ai_filterskill_filter.ganran(card, card_place)
 		if card:getTypeId() == sgs.Card_Equip then
-			return ("iron_chain:ganran[%s:%s]=%d"):format(
+			local str = string.format("iron_chain:ganran[%s:%s]=%d", 
 				card:getSuitString(),
 				card:getNumberString(),
 				card:getEffectiveId()
 			)
+			return str
 		end
 	end
 	
 	local ganran_skill = {}
-	table.insert(sgs.ai_skills, ganran_skill)
 	ganran_skill.name = "ganran"
+	table.insert(sgs.ai_skills, ganran_skill)
 	function ganran_skill.getTurnUseCard(self)
-		local card = self:getCard("EquipCard")
-		if card then return sgs.Card_Parse(sgs.ai_filterskill_filter.ganran(card)) end
+		local cards = self.player:getCards("he")
+		local card = nil
+		for _,cd in sgs.qlist(cards) do
+			if cd:isKindOf("EquipCard") or cd:isKindOf("GanranEquip") then
+				card = cd
+				break
+			end
+		end
+		--local card = self:getCard("EquipCard")
+		if card then 
+			local suit = card:getSuitString()
+			local point = card:getNumberString()
+			local id = card:getEffectiveId()
+			local card_str = string.format("iron_chain:ganran[%s:%s]=%d", suit, point, id)
+			local acard = sgs.Card_Parse(card_str)
+			assert(acard)
+			return acard
+		end
 	end
-	
+
 	local useTrickCard = SmartAI.useTrickCard
 	function SmartAI:useTrickCard(card, use)
 		if #self.enemies == 0 then
@@ -26,7 +43,7 @@ if sgs.GetConfig("GameMode", ""):match("zombie") then
 		end
 		useTrickCard(self, card, use)
 	end
-	
+
 	local peaching_skill = {name = "peaching"}
 	table.insert(sgs.ai_skills, peaching_skill)
 	function peaching_skill.getTurnUseCard(self)

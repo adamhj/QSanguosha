@@ -11,7 +11,7 @@ public:
     ZombieRule(Scenario *scenario)
         :ScenarioRule(scenario)
     {
-        events << GameStart << Death << GameOverJudge << TurnStart;
+        events << GameStart << BuryVictim << GameOverJudge << TurnStart;
     }
 
     void zombify(ServerPlayer *player, ServerPlayer *killer = NULL) const{
@@ -60,7 +60,7 @@ public:
                 break;
             }
 
-        case Death:{
+        case BuryVictim:{
             bool hasHuman=false;
             if(player->isLord()){
                 foreach(ServerPlayer *p, room->getAlivePlayers()) {
@@ -82,7 +82,8 @@ public:
 
             }else hasHuman=true;
 
-            DamageStar damage = data.value<DamageStar>();
+            DeathStruct death = data.value<DeathStruct>();
+            DamageStar damage = death.damage;
             if(damage && damage->from){
                 ServerPlayer *killer = damage->from;
 
@@ -322,7 +323,7 @@ public:
     virtual bool viewFilter(const Card* to_select) const{
         Room *room = Sanguosha->currentRoom();
         Player::Place place = room->getCardPlace(to_select->getEffectiveId());
-        return place == Player::PlaceHand && to_select->getTypeId() == Card::Equip;
+        return place == Player::PlaceHand && to_select->getTypeId() == Card::TypeEquip;
     }
 
     virtual const Card *viewAs(const Card *originalCard) const{

@@ -151,15 +151,16 @@ void Player::clearFlags(){
 }
 
 int Player::getAttackRange() const{
+    int original_range = 1;
+    if (hasSkill("zhengfeng") && !weapon && hp > 1) original_range = hp; // @todo_P: new way to remove coupling or just put it into TargetModSkill
+    if (hasFlag("InfinityAttackRange") || getMark("InfinityAttackRange") > 0) original_range = 10000; // Actually infinity
+    int weapon_range = 0;
     if (weapon != NULL) {
-        const Weapon *card = qobject_cast<const Weapon*>(weapon->getRealCard());
+        const Weapon *card = qobject_cast<const Weapon *>(weapon->getRealCard());
         Q_ASSERT(card);
-        return card->getRange();
+        weapon_range = card->getRange();
     }
-    else if(hasSkill("zhengfeng"))
-        return hp;
-    else
-        return 1;
+    return qMax(original_range, weapon_range);
 }
 
 bool Player::inMyAttackRange(const Player *other) const{
@@ -290,9 +291,18 @@ bool Player::isLord() const{
     return getRole() == "lord";
 }
 
-bool Player::hasSkill(const QString &skill_name) const{
+bool Player::hasSkill(const QString &skill_name, bool include_lose) const{
+    if (!include_lose) {
+        const Skill *skill = Sanguosha->getSkill(skill_name);
+        if (!skill) {
+            return false;
+        }
+        if ((!skill->inherits("WeaponSkill") && !skill->inherits("ArmorSkill"))
+                && ((hasFlag("huoshui") && getHp() >= (getMaxHp() + 1) / 2) || getMark("Qingcheng" + skill_name) > 0))
+            return false;
+    }
     return skills.contains(skill_name)
-            || acquired_skills.contains(skill_name);
+           || acquired_skills.contains(skill_name);
 }
 
 bool Player::hasInnateSkill(const QString &skill_name) const{
@@ -306,6 +316,15 @@ bool Player::hasInnateSkill(const QString &skill_name) const{
 }
 
 bool Player::hasLordSkill(const QString &skill_name, bool include_lose) const{
+    if (!include_lose) {
+        const Skill *skill = Sanguosha->getSkill(skill_name);
+        if (!skill) {
+            return false;
+        }
+        if ((!skill->inherits("WeaponSkill") && !skill->inherits("ArmorSkill"))
+                && ((hasFlag("huoshui") && getHp() >= (getMaxHp() + 1) / 2) || getMark("Qingcheng" + skill_name) > 0))
+            return false;
+    }
     if(acquired_skills.contains(skill_name))
         return true;
 
@@ -313,7 +332,10 @@ bool Player::hasLordSkill(const QString &skill_name, bool include_lose) const{
     if(mode == "06_3v3" || mode == "02_1v1" || Config.value("WithoutLordskill", false).toBool())
         return false;
 
-    if(isLord() || ServerInfo.EnableHegemony)
+    if (ServerInfo.EnableHegemony)
+        return false;
+
+    if (isLord())
         return skills.contains(skill_name) || (include_lose && hasInnateSkill(skill_name));
 
     if(hasSkill("weidi")){
@@ -624,8 +646,11 @@ bool Player::canSlash(const Player *other, const Card *slash, bool distance_limi
         return true;
 }
 
-int Player::getCardCount(bool include_equip) const
-{
+bool Player::canSlash(const Player *other, bool distance_limit, int rangefix) const{
+    return canSlash(other, NULL, distance_limit, rangefix);
+}
+
+int Player::getCardCount(bool include_equip) const{
     int count = getHandcardNum();
     if(include_equip){
         if(weapon != NULL) count ++;
@@ -671,8 +696,7 @@ int Player::getSlashCount() const
 {
     return history.value("Slash", 0)
             + history.value("ThunderSlash", 0)
-            + history.value("FireSlash", 0)
-            + history.value("WushenSlash", 0);
+           + history.value("FireSlash", 0);
 }
 
 void Player::clearHistory()
@@ -731,99 +755,117 @@ bool Player::isProhibited(const Player *to, const Card *card) const
     return Sanguosha->isProhibited(this, to, card);
 }
 
-bool Player::canSlashWithoutCrossbow() const
-{
-    if(hasSkill("paoxiao"))
-        return true;
-
+bool Player::canSlashWithoutCrossbow() const{
     int slash_count = getSlashCount();
     int valid_slash_count = 1;
-    if(hasFlag("tianyi_success"))
-        valid_slash_count++;
-    if(hasFlag("jiangchi_invoke"))
-        valid_slash_count++;
-    if(getMark("huxiao") > 0)
-        valid_slash_count += getMark("huxiao");
+    Slash *slash = new Slash(Card::NoSuit, 0);
+    slash->deleteLater();
+    valid_slash_count += Sanguosha->correctCardTarget(TargetModSkill::Residue, this, slash);
     return slash_count < valid_slash_count;
 }
 
-void Player::jilei(const QString &type)
-{
-    if(type == ".")
-        jilei_set.clear();
-    else if(type == "basic")
-        jilei_set << "BasicCard";
-    else if(type == "trick")
-        jilei_set << "TrickCard";
-    else if(type == "equip")
-        jilei_set << "EquipCard";
-    else
-        jilei_set << type;
+void Player::jilei(const QString &type) {
+    if (type == "clear") { // Clear
+        removeCardLimitation("use,response,discard", "BasicCard|.|.|hand$1");
+        removeCardLimitation("use,response,discard", "EquipCard|.|.|hand$1");
+        removeCardLimitation("use,response,discard", "TrickCard|.|.|hand$1");
+        return;
+    }
+    QList<Card::HandlingMethod> limit_method;
+    limit_method << Card::MethodUse << Card::MethodResponse << Card::MethodDiscard;
+    QString _type = type;
+    if (type == "basic")
+        _type = "BasicCard";
+    else if (type == "equip")
+        _type = "EquipCard";
+    else if (type == "trick")
+        _type = "TrickCard";
+    _type = _type + "|.|.|hand"; // Handcards only
+    foreach (Card::HandlingMethod method, limit_method)
+        card_limitation[method] << _type + "$1";
 }
 
-bool Player::isJilei(const Card *card) const
-{
-    if(card->getTypeId() == Card::Skill) {
-        if(!card->canJilei())
-            return false;
+bool Player::isJilei(const Card *card) const{
+    // Not handcard only!!!
+    return isCardLimited(card, Card::MethodDiscard);
+}
 
+void Player::setCardLocked(const QString &name) {
+    static QChar unset_symbol('-');
+    if (name.isEmpty())
+        return;
+    else if (name.startsWith(unset_symbol)) {
+        QString copy = name.mid(1);
+        removeCardLimitation("use,response", copy + "$0");
+    } else
+        setCardLimitation("use,response", name + "$0");
+}
+
+bool Player::isLocked(const Card *card) const{
+    return isCardLimited(card, Card::MethodUse);
+}
+
+void Player::setCardLimitation(const QString &limit_list, const QString &pattern, bool single_turn) {
+    QStringList limit_type = limit_list.split(",");
+    QString _pattern = pattern;
+    if (!pattern.endsWith("$1") && !pattern.endsWith("$0")) {
+        QString symb = single_turn ? "$1" : "$0";
+        _pattern = _pattern + symb;
+    }
+    foreach (QString limit, limit_type) {
+        Card::HandlingMethod method = Sanguosha->getCardHandlingMethod(limit);
+        card_limitation[method] << _pattern;
+    }
+}
+
+void Player::removeCardLimitation(const QString &limit_list, const QString &pattern) {
+    QStringList limit_type = limit_list.split(",");
+    QString _pattern = pattern;
+    if (!_pattern.endsWith("$1") && !_pattern.endsWith("$0"))
+        _pattern = _pattern + "$0";
+    foreach (QString limit, limit_type) {
+        Card::HandlingMethod method = Sanguosha->getCardHandlingMethod(limit);
+        card_limitation[method].removeOne(_pattern);
+    }
+}
+
+void Player::clearCardLimitation(bool single_turn) {
+    QList<Card::HandlingMethod> limit_type;
+    limit_type << Card::MethodUse << Card::MethodResponse << Card::MethodDiscard
+               << Card::MethodRecast << Card::MethodPindian;
+    foreach (Card::HandlingMethod method, limit_type) {
+        QStringList limit_patterns = card_limitation[method];
+        foreach (QString pattern, limit_patterns) {
+            if (!single_turn || (single_turn && pattern.endsWith("$1")))
+                card_limitation[method].removeAll(pattern);
+        }
+    }
+}
+
+bool Player::isCardLimited(const Card *card, Card::HandlingMethod method, bool isHandcard) const{
+    if (method == Card::MethodNone)
+        return false;
+    if (card->getTypeId() == Card::TypeSkill && method == card->getHandlingMethod()) {
         foreach(int card_id, card->getSubcards()) {
             const Card *c = Sanguosha->getCard(card_id);
-            foreach(QString pattern, jilei_set.toList()){
-                ExpPattern p(pattern);
-                if(p.match(this,c) && !hasEquip(c)) return true;
+            foreach (QString pattern, card_limitation[method]) {
+                QString _pattern = pattern.split("$").first();
+                if (isHandcard)
+                    _pattern.replace("hand", ".");
+                ExpPattern p(_pattern);
+                if (p.match(this, c)) return true;
             }
         }
     } else {
-        if(card->getSubcards().isEmpty())
-            foreach(QString pattern, jilei_set.toList()){
-                ExpPattern p(pattern);
-                if(p.match(this,card)) return true;
-            }
-        else{
-            foreach(int card_id, card->getSubcards()){
-                const Card *c = Sanguosha->getCard(card_id);
-                foreach(QString pattern, jilei_set.toList()){
-                    ExpPattern p(pattern);
-                    if(p.match(this,card) && !hasEquip(c)) return true;
-                }
-            }
+        foreach (QString pattern, card_limitation[method]) {
+            QString _pattern = pattern.split("$").first();
+            if (isHandcard)
+                _pattern.replace("hand", ".");
+            ExpPattern p(_pattern);
+            if (p.match(this, card)) return true;
         }
     }
-
     return false;
-}
-
-void Player::setCardLocked(const QString &name)
-{
-    static QChar unset_symbol('-');
-    if(name.isEmpty())
-        return;
-    else if(name == ".")
-        lock_card.clear();
-    else if(name.startsWith(unset_symbol)){
-        QString copy = name;
-        copy.remove(unset_symbol);
-        lock_card.remove(copy);
-    }
-    else if(!lock_card.contains(name))
-        lock_card << name;
-}
-
-bool Player::isLocked(const Card *card) const
-{
-    foreach(QString card_name, lock_card){
-        if (card->isKindOf(card_name.toStdString().c_str())){
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool Player::hasCardLock(const QString &card_str) const
-{
-    return lock_card.contains(card_str);
 }
 
 bool Player::isCaoCao() const
@@ -860,7 +902,7 @@ void Player::copyFrom(Player* p)
     b->chained          = a->chained;
     b->judging_area     = QList<int> (a->judging_area);
     b->fixed_distance   = QHash<const Player *, int> (a->fixed_distance);
-    b->jilei_set        = QSet<QString> (a->jilei_set);
+    b->card_limitation  = QMap<Card::HandlingMethod, QStringList>(a->card_limitation);
 
     b->tag              = QVariantMap(a->tag);
 }

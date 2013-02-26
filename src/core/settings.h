@@ -29,7 +29,8 @@ public:
     int CountDownSeconds;
     QString GameMode;
     QStringList BanPackages;
-    bool ContestMode;
+    bool RandomSeat;
+    bool EnableCheat;
     bool FreeChoose;
     bool ForbidSIMC;
     bool DisableChat;
@@ -44,13 +45,15 @@ public:
     QString Address;
     bool EnableAI;
     int AIDelay;
+    int OriginAIDelay;
+    bool AlterAIDelayAD;
+    int AIDelayAD;
     ushort ServerPort;
 
     // client side
     QString HostAddress;
     QString UserName;
     QString UserAvatar;
-    QString Password;
     QStringList HistoryIPs;
     ushort DetectorPort;
     int MaxCards;
@@ -59,6 +62,7 @@ public:
     bool EnableMinimizeDialog;
     bool NeverNullifyMyTrick;
     bool EnableAutoTarget;
+    bool EnableIntellectualSelection;
     int NullificationCountDown;
     int OperationTimeout;
     bool OperationNoLimit;
@@ -67,6 +71,7 @@ public:
     bool EnableBgMusic;
     float BGMVolume;
     float EffectVolume;
+    bool DisableLua;
 
     QString BackgroundImage;
 

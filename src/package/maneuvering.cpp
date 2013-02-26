@@ -35,19 +35,24 @@ Analeptic::Analeptic(Card::Suit suit, int number)
 {
     setObjectName("analeptic");
     target_fixed = true;
-    once = true;
 }
 
 QString Analeptic::getSubtype() const{
     return "buff_card";
 }
 
-bool Analeptic::IsAvailable(const Player *player){
-    return !player->hasUsed("Analeptic");
+bool Analeptic::IsAvailable(const Player *player, const Card *analeptic){
+    Analeptic *newanal = new Analeptic(Card::NoSuit, 0);
+    newanal->deleteLater();
+    if (player->isCardLimited(analeptic == NULL ? newanal : analeptic, Card::MethodUse)
+        || player->isProhibited(player, analeptic == NULL ? newanal : analeptic))
+            return false;
+
+    return player->usedTimes("Analeptic") <= Sanguosha->correctCardTarget(TargetModSkill::Residue, player, analeptic == NULL ? newanal : analeptic);
 }
 
 bool Analeptic::isAvailable(const Player *player) const{
-    return IsAvailable(player) && BasicCard::isAvailable(player);
+    return IsAvailable(player, this) && BasicCard::isAvailable(player);
 }
 
 void Analeptic::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const{
@@ -80,26 +85,6 @@ void Analeptic::onEffect(const CardEffectStruct &effect) const{
     }
 }
 
-class FireFanSkill: public WeaponSkill{
-public:
-    FireFanSkill():WeaponSkill("Fan"){
-        events << SlashEffect;
-    }
-    virtual bool trigger(TriggerEvent, Room* room, ServerPlayer *player, QVariant &data) const{
-        SlashEffectStruct effect = data.value<SlashEffectStruct>();
-        if(!effect.slash->getSkillName().isEmpty() && effect.slash->getSubcards().length() > 0)
-            return false;
-        if(effect.nature == DamageStruct::Normal){
-            if(room->askForSkillInvoke(player, objectName(), data)){
-                room->setEmotion(player, "weapon/fan");
-                effect.nature = DamageStruct::Fire;
-                data = QVariant::fromValue(effect);
-            }
-        }
-        return false;
-    }
-};
-
 class FanSkill: public OneCardViewAsSkill{
 public:
     FanSkill():OneCardViewAsSkill("Fan"){
@@ -129,7 +114,6 @@ public:
 
 Fan::Fan(Suit suit, int number):Weapon(suit, number, 4){
     setObjectName("Fan");
-    skill = new FireFanSkill;
 }
 
 class GudingBladeSkill: public WeaponSkill{
@@ -228,10 +212,6 @@ public:
         events << DamageInflicted << CardsMoveOneTime;
     }
 
-    virtual int getPriority() const {
-        return -2;
-    }
-
     virtual bool triggerable(const ServerPlayer *target) const{
         return target && target->isAlive() && target->getMark("qinggang") == 0 && !target->hasFlag("wuqian");
     }
@@ -295,7 +275,8 @@ FireAttack::FireAttack(Card::Suit suit, int number)
 }
 
 bool FireAttack::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const{
-    if(!targets.isEmpty())
+    int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
+    if (targets.length() >= total_num)
         return false;
 
     if(to_select->isKongcheng())
@@ -318,7 +299,7 @@ void FireAttack::onEffect(const CardEffectStruct &effect) const{
     QString suit_str = card->getSuitString();
     QString pattern = QString(".%1").arg(suit_str.at(0).toUpper());
     QString prompt = QString("@fire-attack:%1::%2").arg(effect.to->getGeneralName()).arg(suit_str);
-    if(effect.from->isAlive() && room->askForCard(effect.from, pattern, prompt, QVariant(), CardDiscarded)){
+    if(effect.from->isAlive() && room->askForCard(effect.from, pattern, prompt)){
         DamageStruct damage;
         damage.card = this;
         damage.from = effect.from;
@@ -336,6 +317,7 @@ IronChain::IronChain(Card::Suit suit, int number)
     :TrickCard(suit, number, false)
 {
     setObjectName("iron_chain");
+    can_recast = true;
 }
 
 QString IronChain::getSubtype() const{
@@ -343,17 +325,23 @@ QString IronChain::getSubtype() const{
 }
 
 bool IronChain::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const{
-    if(targets.length() >= 2)
+    int total_num = 2 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
+    if (targets.length() >= total_num)
+        return false;
+    if (Self->isCardLimited(this, Card::MethodUse))
         return false;
 
     return true;
 }
 
 bool IronChain::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const{
-    if(getSkillName() == "guhuo" || getSkillName() == "qice")
-        return targets.length() == 1 || targets.length() == 2;
+    if (Self->isCardLimited(this, Card::MethodUse))
+        return targets.length() == 0;
+    int total_num = 2 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
+    if (getSkillName() == "guhuo" || getSkillName() == "qice")
+        return targets.length() > 0 && targets.length() <= total_num;
     else
-        return targets.length() <= 2;
+        return targets.length() <= total_num;
 }
 
 void IronChain::onUse(Room *room, const CardUseStruct &card_use) const{
@@ -380,11 +368,13 @@ void IronChain::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &tar
 }
 
 void IronChain::onEffect(const CardEffectStruct &effect) const{
-    bool chained = ! effect.to->isChained();
-    effect.to->setChained(chained);
+    effect.to->setChained(!effect.to->isChained());
 
-    effect.to->getRoom()->broadcastProperty(effect.to, "chained");
-    effect.to->getRoom()->setEmotion(effect.to, "chain");
+    Room *room = effect.to->getRoom();
+
+    room->broadcastProperty(effect.to, "chained");
+    room->setEmotion(effect.to, "chain");
+    room->getThread()->trigger(ChainStateChanged, room, effect.to);
 }
 
 SupplyShortage::SupplyShortage(Card::Suit suit, int number)
@@ -407,15 +397,15 @@ bool SupplyShortage::targetFilter(const QList<const Player *> &targets, const Pl
     if (to_select->containsTrick(objectName()))
         return false;
 
-    if (Self->hasSkill("qicai"))
-        return true;
+    int distance_limit = 1 + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, Self, this);
+    int rangefix = 0;
+    if (Self->getOffensiveHorse() && subcards.contains(Self->getOffensiveHorse()->getId()))
+        rangefix += 1;
 
-    int distance_fix = (Self->getOffensiveHorse() && Self->getOffensiveHorse()->getId() == this->getEffectiveId()) ? 1 : 0;
-    int distance = Self->distanceTo(to_select, distance_fix);
-    if (Self->hasSkill("duanliang"))
-        return distance <= 2;
-    else
-        return distance <= 1;
+    if (Self->distanceTo(to_select, rangefix) > distance_limit)
+        return false;
+
+    return true;
 }
 
 void SupplyShortage::takeEffect(ServerPlayer *target) const{

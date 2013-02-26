@@ -13,13 +13,13 @@ QString BasicCard::getType() const{
 }
 
 Card::CardType BasicCard::getTypeId() const{
-    return Basic;
+    return TypeBasic;
 }
 
 TrickCard::TrickCard(Suit suit, int number, bool aggressive)
-    :Card(suit, number), aggressive(aggressive),
-    cancelable(true)
+    : Card(suit, number), aggressive(aggressive), cancelable(true)
 {
+    handling_method = Card::MethodUse;
 }
 
 bool TrickCard::isAggressive() const{
@@ -35,7 +35,7 @@ QString TrickCard::getType() const{
 }
 
 Card::CardType TrickCard::getTypeId() const{
-    return Trick;
+    return TypeTrick;
 }
 
 bool TrickCard::isCancelable(const CardEffectStruct &effect) const{
@@ -51,7 +51,11 @@ QString EquipCard::getType() const{
 }
 
 Card::CardType EquipCard::getTypeId() const{
-    return Equip;
+    return TypeEquip;
+}
+
+bool EquipCard::isAvailable(const Player *player) const{
+    return !player->isProhibited(player, this) && Card::isAvailable(player);
 }
 
 void EquipCard::onUse(Room *room, const CardUseStruct &card_use) const{
@@ -59,24 +63,19 @@ void EquipCard::onUse(Room *room, const CardUseStruct &card_use) const{
 
     QVariant data = QVariant::fromValue(card_use);
     RoomThread *thread = room->getThread();
+    thread->trigger(PreCardUsed, room, player, data);
     thread->trigger(CardUsed, room, player, data);
-
     thread->trigger(CardFinished, room, player, data);
 }
 
 void EquipCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const{
-    WrappedCard *equipped = NULL;
+    int equipped_id = Card::S_UNKNOWN_CARD_ID;
     ServerPlayer *target = targets.value(0, source);
     if (room->getCardOwner(getId()) != source) return;
-    switch(location()){
-    case WeaponLocation: equipped = target->getWeapon(); break;
-    case ArmorLocation: equipped = target->getArmor(); break;
-    case DefensiveHorseLocation: equipped = target->getDefensiveHorse(); break;
-    case OffensiveHorseLocation: equipped = target->getOffensiveHorse(); break;
-    }
+    if (target->getEquip(location()))
+        equipped_id = target->getEquip(location())->getEffectiveId();
 
-    if (room->getCardPlace(getId()) == Player::PlaceHand)
-        {
+    if (room->getCardPlace(getId()) == Player::PlaceHand) {
             QList<CardsMoveStruct> exchangeMove;
             CardsMoveStruct move1;
             move1.card_ids << getId();
@@ -84,10 +83,9 @@ void EquipCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &tar
             move1.to_place = Player::PlaceEquip;
             move1.reason = CardMoveReason(CardMoveReason::S_REASON_USE, target->objectName());
             exchangeMove.push_back(move1);
-            if(equipped)
-            {
+            if (equipped_id != Card::S_UNKNOWN_CARD_ID) {
                 CardsMoveStruct move2;
-                move2.card_ids << equipped->getId();
+                move2.card_ids << equipped_id;
                 move2.to = NULL;
                 move2.to_place = Player::DiscardPile;
                 move2.reason = CardMoveReason(CardMoveReason::S_REASON_CHANGE_EQUIP, target->objectName());
@@ -101,7 +99,6 @@ void EquipCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &tar
 
             room->moveCardsAtomic(exchangeMove, true);
         }
-
 }
 
 void EquipCard::onInstall(ServerPlayer *player) const{
@@ -151,10 +148,7 @@ bool GlobalEffect::isAvailable(const Player *player) const{
     QList<const Player *> players = player->getSiblings();
     players << player;
     foreach(const Player *p, players){
-        if(p->isDead())
-            continue;
-
-        if(player->isProhibited(p, this))
+        if (p->isDead() || player->isProhibited(p, this))
             continue;
 
         canUse = true;
@@ -171,11 +165,8 @@ QString AOE::getSubtype() const{
 bool AOE::isAvailable(const Player *player) const{
     bool canUse = false;
     QList<const Player *> players = player->getSiblings();
-    foreach(const Player *p, players){
-        if(p->isDead())
-            continue;
-
-        if(player->isProhibited(p, this))
+    foreach (const Player *p, players) {
+        if(p->isDead() || player->isProhibited(p, this))
             continue;
 
         canUse = true;
@@ -232,8 +223,8 @@ void DelayedTrick::onUse(Room *room, const CardUseStruct &card_use) const{
     room->sendLog(log);
     QVariant data = QVariant::fromValue(card_use);
     RoomThread *thread = room->getThread();
+    thread->trigger(PreCardUsed, room, card_use.from, data);
     thread->trigger(CardUsed, room, card_use.from, data);
-
     thread->trigger(CardFinished, room, card_use.from, data);
 }
 
@@ -265,18 +256,17 @@ void DelayedTrick::onEffect(const CardEffectStruct &effect) const{
 
     if(judge_struct.isBad()){
         takeEffect(effect.to);
-        if(room->getCardOwner(getEffectiveId()) == NULL)
-        {
+        if (room->getCardOwner(getEffectiveId()) == NULL) {
             CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, QString());
             room->throwCard(this, reason, NULL);
         }
-    }else if(movable){
+    } else if (movable) {
         onNullified(effect.to);
-    }
-    if (!movable)
-    {
-        CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, QString());
-        room->throwCard(this, reason, NULL);
+    } else if (!movable) {
+        if (room->getCardOwner(getEffectiveId()) == NULL) {
+            CardMoveReason reason(CardMoveReason::S_REASON_NATURAL_ENTER, QString());
+            room->throwCard(this, reason, NULL);
+        }
     }
 }
 
@@ -315,8 +305,16 @@ void DelayedTrick::onNullified(ServerPlayer *target) const{
 }
 
 Weapon::Weapon(Suit suit, int number, int range)
-    :EquipCard(suit, number), range(range)
+    : EquipCard(suit, number), range(range)
 {
+    can_recast = true;
+}
+
+bool Weapon::isAvailable(const Player *player) const{
+    QString mode = player->getGameMode();
+    if (mode == "04_1v3" && !player->isCardLimited(this, Card::MethodRecast))
+        return true;
+    return !player->isCardLimited(this, Card::MethodUse) && EquipCard::isAvailable(player);
 }
 
 int Weapon::getRange() const{

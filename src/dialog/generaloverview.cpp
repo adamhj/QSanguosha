@@ -51,6 +51,8 @@ void GeneralOverview::fillGenerals(const QList<const General *> &generals){
         package = Sanguosha->translate(general->getPackage());
 
         QString nickname = Sanguosha->translate("#" + general->objectName());
+        if (nickname.startsWith("#"))
+            nickname = Sanguosha->translate("#" + general->objectName().split("_").last());
         QTableWidgetItem *nickname_item;
         if(!nickname.startsWith("#"))
             nickname_item = new QTableWidgetItem(nickname);
@@ -94,11 +96,11 @@ void GeneralOverview::fillGenerals(const QList<const General *> &generals){
     }
 
     ui->tableWidget->setColumnWidth(0, 80);
-    ui->tableWidget->setColumnWidth(1, 80);
+    ui->tableWidget->setColumnWidth(1, 95);
     ui->tableWidget->setColumnWidth(2, 40);
     ui->tableWidget->setColumnWidth(3, 50);
     ui->tableWidget->setColumnWidth(4, 60);
-    ui->tableWidget->setColumnWidth(5, 60);
+    ui->tableWidget->setColumnWidth(5, 85);
 
     ui->tableWidget->setCurrentItem(ui->tableWidget->item(0,0));
 }
@@ -178,6 +180,9 @@ void GeneralOverview::on_tableWidget_itemSelectionChanged()
     const General *general = Sanguosha->getGeneral(general_name);
     ui->generalPhoto->setPixmap(G_ROOM_SKIN.getCardMainPixmap(general->objectName()));
     QList<const Skill *> skills = general->getVisibleSkillList();
+    foreach (const Skill *skill, skills) {
+        if (skill->inherits("SPConvertSkill")) skills.removeOne(skill);
+    }
 
     foreach(QString skill_name, general->getRelatedSkillNames()){
         const Skill *skill = Sanguosha->getSkill(skill_name);
@@ -197,18 +202,11 @@ void GeneralOverview::on_tableWidget_itemSelectionChanged()
     if(last_word.startsWith("~")){
         QStringList origin_generals = general->objectName().split("_");
         if(origin_generals.length()>1)
-            last_word = Sanguosha->translate(("~") +  origin_generals.at(1));
+            last_word = Sanguosha->translate(("~") + origin_generals.last());
     }
 
-    if(last_word.startsWith("~") && general->objectName().endsWith("f")){
-        QString origin_general = general->objectName();
-        origin_general.chop(1);
-        if(Sanguosha->getGeneral(origin_general))
-            last_word = Sanguosha->translate(("~") + origin_general);
-    }
 
     if(!last_word.startsWith("~")){
-
         QCommandLinkButton *death_button = new QCommandLinkButton(tr("Death"), last_word);
         button_layout->addWidget(death_button);
 
@@ -249,6 +247,8 @@ void GeneralOverview::on_tableWidget_itemSelectionChanged()
         ui->designerLineEdit->setText(tr("Official"));
 
     QString cv_text = Sanguosha->translate("cv:" + general->objectName());
+    if (cv_text.startsWith("cv:"))
+        cv_text = Sanguosha->translate("cv:" + general->objectName().split("_").last());
     if(!cv_text.startsWith("cv:"))
         ui->cvLineEdit->setText(cv_text);
     else
@@ -276,9 +276,8 @@ void GeneralOverview::playAudioEffect()
 
 #include "clientstruct.h"
 #include "client.h"
-void GeneralOverview::on_tableWidget_itemDoubleClicked(QTableWidgetItem*)
-{
-    if(ServerInfo.FreeChoose && Self){
+void GeneralOverview::on_tableWidget_itemDoubleClicked(QTableWidgetItem *) {
+    if (ServerInfo.EnableCheat && Self) {
         int row = ui->tableWidget->currentRow();
         QString general_name = ui->tableWidget->item(row, 0)->data(Qt::UserRole).toString();
         ClientInstance->requestCheatChangeGeneral(general_name);

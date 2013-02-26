@@ -31,12 +31,9 @@ OptionButton::OptionButton(QString icon_path, const QString &caption, QWidget *p
         setText(caption);
         setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
-        if(caption.length()>= 4){
-            QFont font = Config.SmallFont;
-            font.setPixelSize(Config.SmallFont.pixelSize() - 5);
-            setFont(font);
-        }else
-            setFont(Config.SmallFont);
+        QFont font = Config.SmallFont;
+        font.setPixelSize(Config.SmallFont.pixelSize() - 8);
+        setFont(font);
     }
 }
 
@@ -83,7 +80,7 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
     foreach (const General *general, generals){
         QPixmap icon = G_ROOM_SKIN.getGeneralPixmap(general->objectName(), icon_type);
         QString caption = Sanguosha->translate(general->objectName());
-        OptionButton *button = new OptionButton(QString());
+        OptionButton *button = new OptionButton(QString(), caption);
         button->setIcon(QIcon(icon));
         button->setIconSize(icon_size);
         button->setToolTip(general->getSkillDescription());        

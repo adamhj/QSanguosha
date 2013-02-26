@@ -5,6 +5,7 @@ package.cpath = package.cpath .. ";./lua/clib/?.dll"
 
 dofile "lua/sgs_ex.lua"
 dofile "lua/sgs_ex2.lua"
+dofile "lua/compatibility.lua"
 
 function load_translation(file)
 	local t = dofile(file)
@@ -39,7 +40,9 @@ function load_extensions(just_require)
 	end
 end
 
-load_extensions()
+if not sgs.GetConfig("DisableLua", false) then
+	load_extensions()
+end
 
 local done_loading = sgs.Sanguosha:property("DoneLoading"):toBool()
 if not done_loading then

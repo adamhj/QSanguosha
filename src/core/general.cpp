@@ -80,6 +80,8 @@ QList<const Skill *> General::getSkillList() const{
 
     foreach(QString skill_name, extra_set){
         const Skill *skill = Sanguosha->getSkill(skill_name);
+        if (!skill)
+            continue;
         skills << skill;
     }
 
@@ -131,7 +133,9 @@ QString General::getPackage() const{
 QString General::getSkillDescription() const{
     QString description;
 
-    foreach(const Skill *skill, getVisibleSkillList()){
+    foreach (const Skill *skill, getVisibleSkillList()) {
+        if (skill->inherits("SPConvertSkill"))
+            continue;
         QString skill_name = Sanguosha->translate(skill->objectName());
         QString desc = skill->getDescription();
         desc.replace("\n", "<br/>");
@@ -146,14 +150,8 @@ void General::lastWord() const{
     bool fileExists = QFile::exists(filename);
     if(!fileExists){
         QStringList origin_generals = objectName().split("_");
-        if(origin_generals.length()>1)
-            filename = QString("audio/death/%1.ogg").arg(origin_generals.at(1));
-    }
-    if(!fileExists && objectName().endsWith("f")){
-        QString origin_general = objectName();
-        origin_general.chop(1);
-        if(Sanguosha->getGeneral(origin_general))
-            filename = QString("audio/death/%1.ogg").arg(origin_general);
+        if (origin_generals.length() > 1)
+            filename = QString("audio/death/%1.ogg").arg(origin_generals.last());
     }
     Sanguosha->playAudioEffect(filename);
 }

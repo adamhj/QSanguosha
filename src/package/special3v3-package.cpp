@@ -5,15 +5,14 @@
 #include "engine.h"
 #include "ai.h"
 #include "maneuvering.h"
+#include "clientplayer.h"
 
 HongyuanCard::HongyuanCard(){
 
 }
 
 bool HongyuanCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const{
-    if(to_select == Self)
-        return false;
-    return targets.length() < 2;
+    return to_select != Self && targets.length() < 2;
 }
 
 void HongyuanCard::onEffect(const CardEffectStruct &effect) const{
@@ -50,7 +49,7 @@ public:
         Room *room = zhugejin->getRoom();
         if(room->askForSkillInvoke(zhugejin, objectName())){
             room->broadcastSkillInvoke(objectName());
-            room->setPlayerFlag(zhugejin, "Invoked");
+            room->setPlayerFlag(zhugejin, objectName());
             return n - 1;
         }else
             return n;
@@ -60,11 +59,11 @@ public:
 class HongyuanAct: public TriggerSkill{
 public:
     HongyuanAct():TriggerSkill("#hongyuan"){
-        events << CardDrawnDone;
+        events << AfterDrawNCards;
     }
 
     virtual bool trigger(TriggerEvent, Room* room, ServerPlayer *zhugejin, QVariant &data) const{
-        if(zhugejin->getPhase() == Player::Draw && zhugejin->hasFlag("Invoked")){
+        if(zhugejin->getPhase() == Player::Draw && zhugejin->hasFlag("hongyuan")){
             room->setPlayerFlag(zhugejin, "-Invoked");
             if(ServerInfo.GameMode == "06_3v3"){
                 foreach(ServerPlayer *other, room->getOtherPlayers(zhugejin)){
@@ -84,11 +83,10 @@ public:
 HuanshiCard::HuanshiCard(){
     target_fixed = true;
     will_throw = false;
-    can_jilei = true;
+    handling_method = Card::MethodResponse;
 }
 
-void HuanshiCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const{
-
+void HuanshiCard::use(Room *, ServerPlayer *, QList<ServerPlayer *> &) const{
 }
 
 class HuanshiViewAsSkill:public OneCardViewAsSkill{
@@ -104,8 +102,8 @@ public:
         return pattern == "@huanshi";
     }
 
-    virtual bool viewFilter(const Card *) const{
-        return true;
+    virtual bool viewFilter(const Card *card) const{
+        return !Self->isCardLimited(card, Card::MethodResponse);
     }
 
     virtual const Card *viewAs(const Card* to_select) const{
@@ -119,18 +117,18 @@ public:
 
 class Huanshi: public TriggerSkill{
 public:
-    Huanshi():TriggerSkill("huanshi"){
-        view_as_skill = new HuanshiViewAsSkill;
-
+    Huanshi(): TriggerSkill("huanshi") {
         events << AskForRetrial;
+        view_as_skill = new HuanshiViewAsSkill;
     }
 
     QList<ServerPlayer *> getTeammates(ServerPlayer *zhugejin) const{
         Room *room = zhugejin->getRoom();
 
         QList<ServerPlayer *> teammates;
-        foreach(ServerPlayer *other, room->getOtherPlayers(zhugejin)){
-            if(AI::GetRelation3v3(zhugejin, other) == AI::Friend)
+        teammates << zhugejin;
+        foreach (ServerPlayer *other, room->getOtherPlayers(zhugejin)) {
+            if (AI::GetRelation3v3(zhugejin, other) == AI::Friend)
                 teammates << other;
         }
         return teammates;
@@ -167,12 +165,8 @@ public:
         QString prompt = prompt_list.join(":");
 
         player->tag["Judge"] = data;
-        bool force = !(ServerInfo.GameMode == "06_3v3" || player == judge->who);
-        QString pattern = force ? "@huanshi!" : "@huanshi";
-        const Card *card = room->askForCard(player, pattern, prompt, data, AskForRetrial);
-
-        if(force && card == NULL)
-            card = player->getCards("he").at(qrand() % player->getCardCount(true));
+        QString pattern = "@huanshi";
+        const Card *card = room->askForCard(player, pattern, prompt, data, Card::MethodResponse, judge->who, true);
 
         if (card != NULL){
             room->broadcastSkillInvoke(objectName());
@@ -185,35 +179,46 @@ public:
 
 class Mingzhe: public TriggerSkill{
 public:
-    Mingzhe():TriggerSkill("mingzhe"){
-        events << CardsMoveOneTime;
+    Mingzhe(): TriggerSkill("mingzhe") {
+        events << BeforeCardsMove << CardsMoveOneTime;
         frequency = Frequent;
     }
 
-    virtual bool trigger(TriggerEvent , Room *room, ServerPlayer *player, QVariant &data) const{
+    virtual bool trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const{
         if(player->getPhase() != Player::NotActive)
             return false;
 
         CardsMoveOneTimeStar move = data.value<CardsMoveOneTimeStar>();
-        if(move->from != player)
+        if (move->from != player)
             return false;
 
-        CardMoveReason reason = move->reason;
+        if (triggerEvent == BeforeCardsMove) {
+            CardMoveReason reason = move->reason;
 
-        if((reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_USE
+            if ((reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_USE
                 || (reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD
-                || (reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_RESPONSE){
-            const Card *card;
-            int i = 0;
-            foreach(int card_id, move->card_ids){
-                card = Sanguosha->getCard(card_id);
-                if(card->isRed() && (move->from_places[i] == Player::PlaceHand || move->from_places[i] == Player::PlaceEquip)
-                    && player->askForSkillInvoke(objectName(), data)){
+                || (reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_RESPONSE) {
+                const Card *card;
+                int i = 0;
+                foreach (int card_id, move->card_ids) {
+                    card = Sanguosha->getCard(card_id);
+                    if (card->isRed() && (move->from_places[i] == Player::PlaceHand
+                                          || move->from_places[i] == Player::PlaceEquip)) {
+                        player->addMark(objectName());
+                    }
+                    i++;
+                }
+            }
+        } else {
+            for (int i = 0; i < player->getMark(objectName()); i++) {
+                if (player->askForSkillInvoke(objectName(), data)) {
                     room->broadcastSkillInvoke(objectName());
                     player->drawCards(1);
+                } else {
+                    break;
                 }
-                i++;
             }
+            player->setMark(objectName(), 0);
         }
         return false;
     }

@@ -91,7 +91,24 @@ public:
     LuaFunction extra_func;
 };
 
-class LuaSkillCard: public SkillCard{
+class LuaTargetModSkill: public TargetModSkill {
+    Q_OBJECT
+
+public:
+    LuaTargetModSkill(const char *name);
+    virtual QString getPattern() const;
+
+    virtual int getResidueNum(const Player *from, const Card *card) const;
+    virtual int getDistanceLimit(const Player *from, const Card *card) const;
+    virtual int getExtraTargetNum(const Player *from, const Card *card) const;
+
+    LuaFunction residue_func;
+    LuaFunction distance_limit_func;
+    LuaFunction extra_target_func;
+    const char *pattern;
+};
+
+class LuaSkillCard: public SkillCard {
     Q_OBJECT
 
 public:
@@ -99,6 +116,8 @@ public:
     LuaSkillCard *clone() const;
     void setTargetFixed(bool target_fixed);
     void setWillThrow(bool will_throw);
+    void setCanRecast(bool can_recast);
+    void setHandlingMethod(Card::HandlingMethod handling_method);
 
     // member functions that do not expose to Lua interpreter
     static LuaSkillCard *Parse(const QString &str);

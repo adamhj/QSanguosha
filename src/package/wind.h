@@ -63,14 +63,14 @@ class GuhuoCard: public SkillCard{
 
 public:
     Q_INVOKABLE GuhuoCard();
-    bool guhuo(ServerPlayer* yuji, const QString& message) const;
+    bool guhuo(ServerPlayer* yuji) const;
 
     virtual bool targetFixed() const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
 
     virtual const Card *validate(const CardUseStruct *card_use) const;
-    virtual const Card *validateInResposing(ServerPlayer *user, bool &continuable) const;
+    virtual const Card *validateInResponse(ServerPlayer *user, bool &continuable) const;
 };
 
 class GuhuoDialog: public QDialog{

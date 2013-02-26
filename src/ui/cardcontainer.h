@@ -35,7 +35,7 @@ public:
     int getFirstEnabled() const;
     void startChoose();
     void startGongxin();
-    void addCloseButton(bool dispose = false);
+    void addCloseButton();
     void view(const ClientPlayer *player);
     virtual QRectF boundingRect() const;
     ClientPlayer* m_currentPlayer;
@@ -55,7 +55,7 @@ private:
     CloseButton* close_button;
     QPixmap _m_background;
     QStack<QList<CardItem *> > items_stack;
-    bool last_retained;
+    QStack<bool> retained_stack;
 
     void _addCardItem(int card_id, const QPointF &pos);
 

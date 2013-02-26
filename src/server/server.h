@@ -88,11 +88,14 @@ private:
     QLineEdit *server_name_edit;
     QSpinBox *timeout_spinbox;
     QCheckBox *nolimit_checkbox;
-    QCheckBox *contest_mode_checkbox;
+    QCheckBox *random_seat_checkbox;
+    QCheckBox *enable_cheat_checkbox;
     QCheckBox *free_choose_checkbox;
     QCheckBox *free_assign_checkbox;
     QCheckBox *free_assign_self_checkbox;
+    QSpinBox *pile_swapping_spinbox;
     QCheckBox *without_lordskill_checkbox;
+    QCheckBox *sp_convert_checkbox;
     QSpinBox *maxchoice_spinbox;
     QSpinBox *lord_maxchoice_spinbox;
     QSpinBox *nonlord_maxchoice_spinbox;
@@ -103,7 +106,10 @@ private:
     QCheckBox *same_checkbox;
     QCheckBox *basara_checkbox;
     QCheckBox *hegemony_checkbox;
+    QLabel *hegemony_maxchoice_label;
     QSpinBox *hegemony_maxchoice_spinbox;
+    QLabel *hegemony_maxsamekingdoms_label;
+    QSpinBox *hegemony_maxsamekingdoms_spinbox;
     QLabel *max_hp_label;
     QComboBox *max_hp_scheme_ComboBox;
     QCheckBox *announce_ip_checkbox;
@@ -116,6 +122,8 @@ private:
     QCheckBox *role_predictable_checkbox;
     QCheckBox *ai_chat_checkbox;
     QSpinBox *ai_delay_spinbox;
+    QCheckBox *ai_delay_altered_checkbox;
+    QSpinBox *ai_delay_ad_spinbox;
     QRadioButton *standard_3v3_radiobutton;
     QRadioButton *new_3v3_radiobutton;
     QComboBox *role_choose_ComboBox;

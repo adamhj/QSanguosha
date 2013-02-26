@@ -1,9 +1,12 @@
 #include "cardoverview.h"
 #include "ui_cardoverview.h"
 #include "engine.h"
+#include "settings.h"
 #include "clientstruct.h"
 #include "client.h"
 #include "SkinBank.h"
+
+#include <QMessageBox>
 
 static CardOverview *Overview;
 
@@ -26,7 +29,7 @@ CardOverview::CardOverview(QWidget *parent) :
     ui->tableWidget->setColumnWidth(3, 60);
     ui->tableWidget->setColumnWidth(4, 70);
 
-    if(ServerInfo.FreeChoose)
+    if (ServerInfo.EnableCheat)
         connect(ui->getCardButton, SIGNAL(clicked()), this, SLOT(askCard()));
     else
         ui->getCardButton->hide();
@@ -92,13 +95,17 @@ void CardOverview::on_tableWidget_itemSelectionChanged()
     ui->cardDescriptionBox->setText(card->getDescription());
 }
 
-void CardOverview::askCard(){
-    if(!ServerInfo.FreeChoose)
+void CardOverview::askCard() {
+    if (!ServerInfo.EnableCheat)
         return;
 
     int row = ui->tableWidget->currentRow();
     if(row >= 0){
         int card_id = ui->tableWidget->item(row, 0)->data(Qt::UserRole).toInt();
+        if (Config.BanPackages.contains(Sanguosha->getEngineCard(card_id)->getPackage())) {
+            QMessageBox::warning(this, tr("Warning"), tr("These packages don't contain this card"));
+            return;
+        }
         ClientInstance->requestCheatGetOneCard(card_id);
     }
 }
