@@ -44,7 +44,6 @@ SOURCES += \
     src/dialog/customassigndialog.cpp \
     src/dialog/distanceviewdialog.cpp \
     src/dialog/generaloverview.cpp \
-    src/dialog/halldialog.cpp \
     src/dialog/mainwindow.cpp \
     src/dialog/packagingeditor.cpp \
     src/dialog/playercarddialog.cpp \
@@ -86,6 +85,7 @@ SOURCES += \
     src/server/roomthread.cpp \
     src/server/roomthread1v1.cpp \
     src/server/roomthread3v3.cpp \
+    src/server/roomthreadxmode.cpp \
     src/server/server.cpp \
     src/server/serverplayer.cpp \
     src/ui/button.cpp \
@@ -125,7 +125,8 @@ SOURCES += \
     src/core/record-analysis.cpp \
     src/package/assassinspackage.cpp \
     src/package/hegemony.cpp \
-    src/scenario/fancheng-scenario.cpp
+    src/scenario/fancheng-scenario.cpp \
+    src/package/yjcm2013-package.cpp
 HEADERS += \
     src/client/aux-skills.h \
     src/client/client.h \
@@ -154,7 +155,6 @@ HEADERS += \
     src/dialog/customassigndialog.h \
     src/dialog/distanceviewdialog.h \
     src/dialog/generaloverview.h \
-    src/dialog/halldialog.h \
     src/dialog/mainwindow.h \
     src/dialog/packagingeditor.h \
     src/dialog/playercarddialog.h \
@@ -195,6 +195,7 @@ HEADERS += \
     src/server/roomthread.h \
     src/server/roomthread1v1.h \
     src/server/roomthread3v3.h \
+    src/server/roomthreadxmode.h \
     src/server/server.h \
     src/server/serverplayer.h \
     src/ui/button.h \
@@ -239,7 +240,8 @@ HEADERS += \
     src/core/record-analysis.h \
     src/package/assassinspackage.h \
     src/package/hegemony.h \
-    src/scenario/fancheng-scenario.h
+    src/scenario/fancheng-scenario.h \
+    src/package/yjcm2013-package.h
 
 FORMS += \
     src/dialog/cardoverview.ui \

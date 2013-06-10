@@ -126,8 +126,12 @@ public:
 class Daji: public TriggerSkill{
 public:
     Daji():TriggerSkill("daji"){
-        events << Damaged << EventPhaseStart << CardEffected << DamageInflicted;
+        events << Damaged << EventPhaseStart << TargetConfirmed << CardFinished << CardEffected << DamageInflicted;
         frequency = Compulsory;
+    }
+
+    virtual bool triggerable(const ServerPlayer *target) const{
+        return target != NULL;
     }
 
     virtual bool trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer *player, QVariant &data) const{
@@ -135,17 +139,26 @@ public:
         QList<ServerPlayer *> players = room->getAlivePlayers();
         bool has_frantic = player->getMark("@frantic")>0;
 
-        if(triggerEvent == EventPhaseStart && player->getPhase() == Player::Finish){
+        if(TriggerSkill::triggerable(player) && triggerEvent == EventPhaseStart && player->getPhase() == Player::Finish){
             if(has_frantic)
                 player->drawCards(players.length());
             else
                 player->drawCards(player->getMaxHp());
         }
 
-        if(has_frantic && (triggerEvent == CardEffected)){
-            if(player->isWounded()){
+        if(has_frantic){
+            if(TriggerSkill::triggerable(player) && player->isWounded() && triggerEvent == TargetConfirmed){
+                CardUseStruct use = data.value<CardUseStruct>();
+                if (use.to.length() > 0 && player == use.to.first()) {
+                    foreach (ServerPlayer *p, use.to) {
+                        if (p != player)
+                            return false;
+                    }
+                    player->setFlags("DajiOnlyTarget");
+                }
+            } else if (player->hasFlag("DajiOnlyTarget") && triggerEvent == CardEffected) {
                 CardEffectStruct effect = data.value<CardEffectStruct>();
-                if(!effect.multiple && effect.card->isKindOf("TrickCard") && player->getPhase() == Player::NotActive){
+                if(!effect.card->isKindOf("TrickCard") && player->getPhase() == Player::NotActive){
                     LogMessage log;
                     log.type = "#DajiAvoid";
                     log.from = effect.from;
@@ -157,10 +170,14 @@ public:
 
                     return true;
                 }
+            } else if (triggerEvent == CardFinished) {
+                CardUseStruct use = data.value<CardUseStruct>();
+                if (use.to.length() > 0 && use.to.first()->hasFlag("DajiOnlyTarget"))
+                    use.to.first()->setFlags("-DajiOnlyTarget");
             }
         }
 
-        if(triggerEvent == DamageInflicted){
+        if(TriggerSkill::triggerable(player) && triggerEvent == DamageInflicted){
             DamageStruct damage = data.value<DamageStruct>();
             if(damage.damage > 1){
                 damage.damage = damage.damage-1;
@@ -181,14 +198,14 @@ public:
 class Guzhan: public TriggerSkill{
 public:
     Guzhan():TriggerSkill("guzhan"){
-        events << CardsMoveOneTime << SlashEffect;
+        events << CardsMoveOneTime;
         frequency = Compulsory;
     }
 
     virtual bool trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer *player, QVariant &data) const{
         if(triggerEvent == CardsMoveOneTime){
-            CardsMoveOneTimeStar move = data.value<CardsMoveOneTimeStar>();
-            if(move->from != player)
+            CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
+            if(move.from != player)
                 return false;
 
             if(player->getWeapon() == NULL){
@@ -199,15 +216,6 @@ public:
                 if(player->hasSkill("paoxiao"))
                     room->detachSkillFromPlayer(player, "paoxiao");
             }
-
-            QList<ServerPlayer *> players = room->getAllPlayers();
-            foreach(ServerPlayer *player, players){
-                player->setMark("qinggang", 0);
-            }
-        }
-        else{
-            SlashEffectStruct effect = data.value<SlashEffectStruct>();
-            effect.to->addMark("qinggang");
         }
         return false;
     }
@@ -230,8 +238,8 @@ public:
             room->recover(player, recover);
         }
         else if(triggerEvent == CardsMoveOneTime){
-            CardsMoveOneTimeStar move = data.value<CardsMoveOneTimeStar>();
-            if(move->from != player)
+            CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
+            if(move.from != player)
                 return false;
             QList<ServerPlayer *> players = room->getAlivePlayers();
             if(player->getHandcardNum() < players.length())
@@ -246,8 +254,8 @@ public:
     Duduan():ProhibitSkill("duduan"){
     }
 
-    virtual bool isProhibited(const Player *from, const Player *to, const Card *card) const{
-        return card->isKindOf("DelayedTrick");
+    virtual bool isProhibited(const Player *from, const Player *to, const Card *card, const QList<const Player *> &) const{
+        return to->hasSkill(objectName()) && card->isKindOf("DelayedTrick");
     }
 };
 
@@ -356,7 +364,7 @@ public:
         QList<ServerPlayer *> players = room->getOtherPlayers(lord);
         foreach(ServerPlayer *player, players){
             JudgeStruct judge;
-            judge.pattern = QRegExp("(Peach|Analeptic):(.*):(.*)");
+            judge.pattern = "Peach,Analeptic";
             judge.good = true;
             judge.who = player;
 
@@ -449,7 +457,7 @@ public:
                 room->gameOver("lord");
 
             DeathStruct death = data.value<DeathStruct>();
-            DamageStar damage = death.damage;
+            DamageStruct *damage = death.damage;
             if(damage && damage->from){
                 if(damage->from->getRole() == damage->to->getRole())
                     damage->from->throwAllHandCards();
@@ -463,7 +471,7 @@ public:
                 }
 
                 damage = NULL;
-                data = QVariant::fromValue(damage);
+                data = QVariant::fromValue(death);
             }
             break;
         }

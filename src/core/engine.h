@@ -1,5 +1,5 @@
-#ifndef ENGINE_H
-#define ENGINE_H
+#ifndef _ENGINE_H
+#define _ENGINE_H
 
 #include "RoomState.h"
 #include "card.h"
@@ -16,13 +16,13 @@
 #include <QThread>
 #include <QList>
 #include <QMutex>
+
 class AI;
 class Scenario;
 
 struct lua_State;
 
-class Engine: public QObject
-{
+class Engine: public QObject {
     Q_OBJECT
 
 public:
@@ -38,10 +38,8 @@ public:
     void addPackage(Package *package);
     void addBanPackage(const QString &package_name);
     QStringList getBanPackages() const;
-    Card *cloneCard(const Card* card) const;
-    Card *cloneCard(const QString &name, Card::Suit suit, int number) const;
-    Card *cloneCard(const QString &name, Card::Suit suit, int number,
-                    const QStringList &flags) const;
+    Card *cloneCard(const Card *card) const;
+    Card *cloneCard(const QString &name, Card::Suit suit = Card::SuitToBeDecided, int number = -1, const QStringList &flags = QStringList()) const;
     SkillCard *cloneSkillCard(const QString &name) const;
     QString getVersionNumber() const;
     QString getVersion() const;
@@ -61,8 +59,9 @@ public:
     int getRoleIndex() const;
 
     const CardPattern *getPattern(const QString &name) const;
-    const Card::HandlingMethod getCardHandlingMethod(const QString &method_name) const;
+    Card::HandlingMethod getCardHandlingMethod(const QString &method_name) const;
     QList<const Skill *> getRelatedSkills(const QString &skill_name) const;
+    const Skill *getMainSkill(const QString &skill_name) const;
 
     QStringList getModScenarioNames() const;
     void addScenario(Scenario *scenario);
@@ -83,7 +82,7 @@ public:
 
     int getCardCount() const;
     const Card *getEngineCard(int cardId) const;
-    // @todo: consider making this const Card*
+    // @todo: consider making this const Card *
     Card *getCard(int cardId);
     WrappedCard *getWrappedCard(int cardId);
 
@@ -98,7 +97,7 @@ public:
     void playAudioEffect(const QString &filename) const;
     void playSkillAudioEffect(const QString &skill_name, int index) const;
 
-    const ProhibitSkill *isProhibited(const Player *from, const Player *to, const Card *card) const;
+    const ProhibitSkill *isProhibited(const Player *from, const Player *to, const Card *card, const QList<const Player *> &others = QList<const Player *>()) const;
     int correctDistance(const Player *from, const Player *to) const;
     int correctMaxCards(const Player *target) const;
     int correctCardTarget(const TargetModSkill::ModType type, const Player *from, const Card *card) const;
@@ -108,6 +107,9 @@ public:
     QObject *currentRoomObject();
     Room *currentRoom();
     RoomState *currentRoomState();
+
+    QString getCurrentCardUsePattern();
+    CardUseStruct::CardUseReason getCurrentCardUseReason();
 
 private:
     void _loadMiniScenarios();
@@ -121,8 +123,8 @@ private:
     QHash<QString, const Skill *> skills;
     QHash<QThread *, QObject *> m_rooms;
     QMap<QString, QString> modes;
-    QMap<QString, const CardPattern *> patterns;
     QMultiMap<QString, QString> related_skills;
+    mutable QMap<QString, const CardPattern *> patterns;
 
     // special skills
     QList<const ProhibitSkill *> prohibit_skills;
@@ -146,4 +148,5 @@ static inline QVariant GetConfigFromLuaState(lua_State *L, const char *key) {
 
 extern Engine *Sanguosha;
 
-#endif // ENGINE_H
+#endif
+

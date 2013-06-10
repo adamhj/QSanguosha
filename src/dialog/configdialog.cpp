@@ -7,33 +7,32 @@
 #include <QFontDialog>
 #include <QColorDialog>
 
-ConfigDialog::ConfigDialog(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::ConfigDialog)
+ConfigDialog::ConfigDialog(QWidget *parent)
+    : QDialog(parent), ui(new Ui::ConfigDialog)
 {
     ui->setupUi(this);
 
     // tab 1
     QString bg_path = Config.value("BackgroundImage").toString();
-    if(!bg_path.startsWith(":"))
+    if (!bg_path.startsWith(":"))
         ui->bgPathLineEdit->setText(bg_path);
 
     ui->bgMusicPathLineEdit->setText(Config.value("BackgroundMusic", "audio/system/background.ogg").toString());
 
     ui->enableEffectCheckBox->setChecked(Config.EnableEffects);
+
+    ui->enableLastWordCheckBox->setEnabled(Config.EnableEffects);
     ui->enableLastWordCheckBox->setChecked(Config.EnableLastWord);
+    connect(ui->enableEffectCheckBox, SIGNAL(toggled(bool)), ui->enableLastWordCheckBox, SLOT(setEnabled(bool)));
+
     ui->enableBgMusicCheckBox->setChecked(Config.EnableBgMusic);
     ui->noIndicatorCheckBox->setChecked(Config.value("NoIndicator", false).toBool());
     ui->noEquipAnimCheckBox->setChecked(Config.value("NoEquipAnim", false).toBool());
-    ui->minimizecCheckBox->setChecked(Config.value("EnableMinimizeDialog", false).toBool());
 
     ui->bgmVolumeSlider->setValue(100 * Config.BGMVolume);
     ui->effectVolumeSlider->setValue(100 * Config.EffectVolume);
 
     // tab 2
-    ui->disableLuaCheckBox->setChecked(Config.DisableLua);
-    ui->nullificationSpinBox->setValue(Config.NullificationCountDown);
-    ui->gameStartSpinBox->setValue(Config.CountDownSeconds);
     ui->neverNullifyMyTrickCheckBox->setChecked(Config.NeverNullifyMyTrick);
     ui->autoTargetCheckBox->setChecked(Config.EnableAutoTarget);
     ui->intellectualSelectionCheckBox->setChecked(Config.EnableIntellectualSelection);
@@ -54,13 +53,12 @@ ConfigDialog::ConfigDialog(QWidget *parent) :
     ui->textEditFontLineEdit->setPalette(palette);
 }
 
-void ConfigDialog::showFont(QLineEdit *lineedit, const QFont &font){
+void ConfigDialog::showFont(QLineEdit *lineedit, const QFont &font) {
     lineedit->setFont(font);
     lineedit->setText(QString("%1 %2").arg(font.family()).arg(font.pointSize()));
 }
 
-ConfigDialog::~ConfigDialog()
-{
+ConfigDialog::~ConfigDialog() {
     delete ui;
 }
 
@@ -80,8 +78,7 @@ void ConfigDialog::on_browseBgButton_clicked() {
     }
 }
 
-void ConfigDialog::on_resetBgButton_clicked()
-{
+void ConfigDialog::on_resetBgButton_clicked() {
     ui->bgPathLineEdit->clear();
 
     QString filename = "backdrop/new-version.jpg";
@@ -91,16 +88,7 @@ void ConfigDialog::on_resetBgButton_clicked()
     emit bg_changed();
 }
 
-void ConfigDialog::saveConfig()
-{
-    int count_down = ui->nullificationSpinBox->value();
-    Config.NullificationCountDown = count_down;
-    Config.setValue("NullificationCountDown", count_down);
-
-    int gs_count_down = ui->gameStartSpinBox->value();
-    Config.CountDownSeconds = gs_count_down;
-    Config.setValue("CountDownSeconds", gs_count_down);
-
+void ConfigDialog::saveConfig() {
     float volume = ui->bgmVolumeSlider->value() / 100.0;
     Config.BGMVolume = volume;
     Config.setValue("BGMVolume", volume);
@@ -114,7 +102,7 @@ void ConfigDialog::saveConfig()
 
     enabled = ui->enableLastWordCheckBox->isChecked();
     Config.EnableLastWord = enabled;
-    Config.setValue("EnabledLastWord", enabled);
+    Config.setValue("EnableLastWord", enabled);
 
     enabled = ui->enableBgMusicCheckBox->isChecked();
     Config.EnableBgMusic = enabled;
@@ -131,12 +119,6 @@ void ConfigDialog::saveConfig()
 
     Config.EnableIntellectualSelection = ui->intellectualSelectionCheckBox->isChecked();
     Config.setValue("EnableIntellectualSelection", Config.EnableIntellectualSelection);
-
-    Config.EnableMinimizeDialog = ui->minimizecCheckBox->isChecked();
-    Config.setValue("EnableMinimizeDialog", Config.EnableMinimizeDialog);
-
-    Config.DisableLua = ui->disableLuaCheckBox->isChecked();
-    Config.setValue("DisableLua", Config.DisableLua);
 }
 
 void ConfigDialog::on_browseBgMusicButton_clicked() {
@@ -150,18 +132,16 @@ void ConfigDialog::on_browseBgMusicButton_clicked() {
     }
 }
 
-void ConfigDialog::on_resetBgMusicButton_clicked()
-{
+void ConfigDialog::on_resetBgMusicButton_clicked() {
     QString default_music = "audio/system/background.ogg";
     Config.setValue("BackgroundMusic", default_music);
     ui->bgMusicPathLineEdit->setText(default_music);
 }
 
-void ConfigDialog::on_changeAppFontButton_clicked()
-{
+void ConfigDialog::on_changeAppFontButton_clicked() {
     bool ok;
     QFont font = QFontDialog::getFont(&ok, Config.AppFont, this);
-    if(ok){
+    if (ok) {
         Config.AppFont = font;
         showFont(ui->appFontLineEdit, font);
 
@@ -171,11 +151,10 @@ void ConfigDialog::on_changeAppFontButton_clicked()
 }
 
 
-void ConfigDialog::on_setTextEditFontButton_clicked()
-{
+void ConfigDialog::on_setTextEditFontButton_clicked() {
     bool ok;
     QFont font = QFontDialog::getFont(&ok, Config.UIFont, this);
-    if(ok){
+    if (ok) {
         Config.UIFont = font;
         showFont(ui->textEditFontLineEdit, font);
 
@@ -184,10 +163,9 @@ void ConfigDialog::on_setTextEditFontButton_clicked()
     }
 }
 
-void ConfigDialog::on_setTextEditColorButton_clicked()
-{
+void ConfigDialog::on_setTextEditColorButton_clicked() {
     QColor color = QColorDialog::getColor(Config.TextEditColor, this);
-    if(color.isValid()){
+    if (color.isValid()) {
         Config.TextEditColor = color;
         Config.setValue("TextEditColor", color);
         QPalette palette;
@@ -197,3 +175,4 @@ void ConfigDialog::on_setTextEditColorButton_clicked()
         ui->textEditFontLineEdit->setPalette(palette);
     }
 }
+

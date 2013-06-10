@@ -75,7 +75,7 @@ Deluge::Deluge(Card::Suit suit, int number)
 {
     setObjectName("deluge");
 
-    judge.pattern = QRegExp("(.*):(.*):([AK])");
+    judge.pattern = ".|.|1,13";
     judge.good = false;
     judge.reason = objectName();
 }
@@ -114,7 +114,7 @@ void Deluge::takeEffect(ServerPlayer *target) const{
     foreach(int card_id, card_ids)
         room->takeAG(NULL, card_id);
 
-    room->broadcastInvoke("clearAG");
+    room->clearAG();
 }
 
 // -----------  Typhoon -----------------
@@ -124,7 +124,7 @@ Typhoon::Typhoon(Card::Suit suit, int number)
 {
     setObjectName("typhoon");
 
-    judge.pattern = QRegExp("(.*):(diamond):([2-9])");
+    judge.pattern = ".|diamond|2~9";
     judge.good = false;
     judge.reason = objectName();
 }
@@ -158,7 +158,7 @@ Earthquake::Earthquake(Card::Suit suit, int number)
 {
     setObjectName("earthquake");
 
-    judge.pattern = QRegExp("(.*):(club):([2-9])");
+    judge.pattern = ".|club|2~9";
     judge.good = false;
     judge.reason = objectName();
 }
@@ -189,7 +189,7 @@ Volcano::Volcano(Card::Suit suit, int number)
 {
     setObjectName("volcano");
 
-    judge.pattern = QRegExp("(.*):(heart):([2-9])");
+    judge.pattern = ".|heart|2~9";
     judge.good = false;
     judge.reason = objectName();
 }
@@ -222,7 +222,7 @@ MudSlide::MudSlide(Card::Suit suit, int number)
 {
     setObjectName("mudslide");
 
-    judge.pattern = QRegExp("(.*):(spade|club):([AK47])");
+    judge.pattern = ".|black|1,13,4,7";
     judge.good = false;
     judge.reason = objectName();
 }
@@ -332,7 +332,6 @@ public:
 
 GaleShell::GaleShell(Suit suit, int number) :Armor(suit, number){
     setObjectName("GaleShell");
-    skill = new GaleShellSkill;
 
     target_fixed = false;
 }
@@ -416,7 +415,6 @@ YxSword::YxSword(Suit suit, int number)
     :Weapon(suit, number, 3)
 {
     setObjectName("YxSword");
-    skill = new YxSwordSkill;
 }
 
 JoyEquipPackage::JoyEquipPackage()
@@ -427,6 +425,7 @@ JoyEquipPackage::JoyEquipPackage()
     (new YxSword)->setParent(this);
 
     type = CardPack;
+    skills << new GaleShellSkill << new YxSwordSkill;
 }
 
 //ADD_PACKAGE(Joy)

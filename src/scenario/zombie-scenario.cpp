@@ -52,6 +52,10 @@ public:
     virtual bool trigger(TriggerEvent triggerEvent, Room* room, ServerPlayer *player, QVariant &data) const{
         switch(triggerEvent){
         case GameStart:{
+                if (!player){
+                    foreach(ServerPlayer *p, room->getPlayers())
+                        room->acquireSkill(p, "peaching");
+                }
                 break;
             }
 
@@ -83,7 +87,7 @@ public:
             }else hasHuman=true;
 
             DeathStruct death = data.value<DeathStruct>();
-            DamageStar damage = death.damage;
+            DamageStruct *damage = death.damage;
             if(damage && damage->from){
                 ServerPlayer *killer = damage->from;
 
@@ -144,8 +148,6 @@ public:
                     player->drawCards(5);
                     room->getThread()->delay();
                 }
-
-                if (round == 1) room->acquireSkill(player, "peaching");
                 gameOverJudge(room);
             }
 

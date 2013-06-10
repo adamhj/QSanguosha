@@ -1,5 +1,5 @@
-#ifndef SOCKET_H
-#define SOCKET_H
+#ifndef _SOCKET_H
+#define _SOCKET_H
 
 #include <QObject>
 #include <QTcpSocket>
@@ -7,7 +7,7 @@
 
 class ClientSocket;
 
-class ServerSocket: public QObject{
+class ServerSocket: public QObject {
     Q_OBJECT
 
 public:
@@ -18,7 +18,7 @@ signals:
     void new_connection(ClientSocket *connection);
 };
 
-class ClientSocket: public QObject{
+class ClientSocket: public QObject {
     Q_OBJECT
 
 public:
@@ -36,6 +36,7 @@ signals:
     void connected();
 };
 
-typedef char buffer_t[1024];
+typedef char buffer_t[65535];
 
-#endif // SOCKET_H
+#endif
+

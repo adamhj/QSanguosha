@@ -1,46 +1,46 @@
-#ifndef LUAWRAPPER_H
-#define LUAWRAPPER_H
+#ifndef _LUA_WRAPPER_H
+#define _LUA_WRAPPER_H
 
 #include "skill.h"
 
 typedef int LuaFunction;
 
-class LuaTriggerSkill: public TriggerSkill{
+class LuaTriggerSkill: public TriggerSkill {
     Q_OBJECT
 
 public:
     LuaTriggerSkill(const char *name, Frequency frequency);
-    void addEvent(TriggerEvent event);
+    void addEvent(TriggerEvent triggerEvent);
     void setViewAsSkill(ViewAsSkill *view_as_skill);
 
     virtual int getPriority() const;
     virtual bool triggerable(const ServerPlayer *target) const;
-    virtual bool trigger(TriggerEvent event, Room* room, ServerPlayer *player, QVariant &data) const;
+    virtual bool trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const;
 
     LuaFunction on_trigger;
     LuaFunction can_trigger;
     int priority;
 };
 
-class LuaProhibitSkill: public ProhibitSkill{
+class LuaProhibitSkill: public ProhibitSkill {
     Q_OBJECT
 
 public:
     LuaProhibitSkill(const char *name);
 
-    virtual bool isProhibited(const Player *from, const Player *to, const Card *card) const;
+    virtual bool isProhibited(const Player *from, const Player *to, const Card *card, const QList<const Player *> &others = QList<const Player *>()) const;
 
     LuaFunction is_prohibited;
 };
 
-class LuaViewAsSkill: public ViewAsSkill{
+class LuaViewAsSkill: public ViewAsSkill {
     Q_OBJECT
 
 public:
     LuaViewAsSkill(const char *name);
 
     virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const;
-    virtual const Card* viewAs(const QList<const Card *> &cards) const;
+    virtual const Card *viewAs(const QList<const Card *> &cards) const;
 
     void pushSelf(lua_State *L) const;
 
@@ -56,20 +56,20 @@ public:
     virtual bool isEnabledAtNullification(const ServerPlayer *player) const;
 };
 
-class LuaFilterSkill: public FilterSkill{
+class LuaFilterSkill: public FilterSkill {
     Q_OBJECT
 
 public:
     LuaFilterSkill(const char *name);
 
-    virtual bool viewFilter(const Card* to_select) const;
+    virtual bool viewFilter(const Card *to_select) const;
     virtual const Card *viewAs(const Card *originalCard) const;
 
     LuaFunction view_filter;
     LuaFunction view_as;
 };
 
-class LuaDistanceSkill: public DistanceSkill{
+class LuaDistanceSkill: public DistanceSkill {
     Q_OBJECT
 
 public:
@@ -80,7 +80,7 @@ public:
     LuaFunction correct_func;
 };
 
-class LuaMaxCardsSkill: public MaxCardsSkill{
+class LuaMaxCardsSkill: public MaxCardsSkill {
     Q_OBJECT
 
 public:
@@ -112,7 +112,7 @@ class LuaSkillCard: public SkillCard {
     Q_OBJECT
 
 public:
-    LuaSkillCard(const char *name);
+    LuaSkillCard(const char *name, const char *skillName);
     LuaSkillCard *clone() const;
     void setTargetFixed(bool target_fixed);
     void setWillThrow(bool will_throw);
@@ -123,19 +123,23 @@ public:
     static LuaSkillCard *Parse(const QString &str);
     void pushSelf(lua_State *L) const;
 
-    virtual QString toString() const;
+    virtual QString toString(bool hidden = false) const;
 
     // these functions are defined at swig/luaskills.i
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
     virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
+    virtual const Card *validate(CardUseStruct &cardUse) const;
+    virtual const Card *validateInResponse(ServerPlayer *user) const;
 
     // the lua callbacks
     LuaFunction filter;
     LuaFunction feasible;
     LuaFunction on_use;
     LuaFunction on_effect;
+    LuaFunction on_validate;
+    LuaFunction on_validate_in_response;
 };
 
-#endif // LUAWRAPPER_H
+#endif
