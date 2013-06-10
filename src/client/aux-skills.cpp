@@ -2,7 +2,7 @@
 #include "client.h"
 #include "standard.h"
 #include "clientplayer.h"
-#include "standard-skillcards.h"
+#include "nostalgia.h"
 #include "engine.h"
 
 DiscardSkill::DiscardSkill()
@@ -12,15 +12,15 @@ DiscardSkill::DiscardSkill()
     card->setParent(this);
 }
 
-void DiscardSkill::setNum(int num){
+void DiscardSkill::setNum(int num) {
     this->num = num;
 }
 
-void DiscardSkill::setMinNum(int minnum){
+void DiscardSkill::setMinNum(int minnum) {
     this->minnum = minnum;
 }
 
-void DiscardSkill::setIncludeEquip(bool include_equip){
+void DiscardSkill::setIncludeEquip(bool include_equip) {
     this->include_equip = include_equip;
 }
 
@@ -41,24 +41,24 @@ bool DiscardSkill::viewFilter(const QList<const Card *> &selected, const Card *c
     return true;
 }
 
-const Card* DiscardSkill::viewAs(const QList<const Card*> &cards) const{
-    if(cards.length() >= minnum){
+const Card *DiscardSkill::viewAs(const QList<const Card *> &cards) const{
+    if (cards.length() >= minnum) {
         card->clearSubcards();
         card->addSubcards(cards);
         return card;
-    }else
+    } else
         return NULL;
 }
 
 // -------------------------------------------
 
 ResponseSkill::ResponseSkill()
-    :OneCardViewAsSkill("response-skill")
+    : OneCardViewAsSkill("response-skill")
 {
     request = Card::MethodResponse;
 }
 
-void ResponseSkill::setPattern(const QString &pattern){
+void ResponseSkill::setPattern(const QString &pattern) {
     this->pattern = Sanguosha->getPattern(pattern);
 }
 
@@ -94,71 +94,66 @@ bool ShowOrPindianSkill::matchPattern(const Player *player, const Card *card) co
 
 // -------------------------------------------
 
-FreeDiscardSkill::FreeDiscardSkill(QObject *parent)
-    :ViewAsSkill("free-discard")
-{
-    setParent(parent);
-    card = new DummyCard;
-}
+class YijiCard: public NosRendeCard {
+public:
+    YijiCard() {
+        target_fixed = false;
+    }
 
-bool FreeDiscardSkill::isEnabledAtPlay(const Player *) const{
-    return true;
-}
+    void setPlayerNames(const QStringList &names) {
+        set = names.toSet();
+    }
 
-bool FreeDiscardSkill::viewFilter(const QList<const Card *> &, const Card *) const{
-    return true;
-}
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *) const{
+        return targets.isEmpty() && set.contains(to_select->objectName());
+    }
 
-const Card *FreeDiscardSkill::viewAs(const QList<const Card *> &cards) const{
-    if(!cards.isEmpty()){
-
-        card->clearSubcards();
-        card->addSubcards(cards);
-
-        return card;
-    }else
-        return NULL;
-}
-
-// -------------------------------------------
+private:
+    QSet<QString> set;
+};
 
 YijiViewAsSkill::YijiViewAsSkill()
-    :ViewAsSkill("yiji")
+    : ViewAsSkill("yiji")
 {
-    card = new RendeCard;
+    card = new YijiCard;
+    card->setParent(this);
 }
 
-void YijiViewAsSkill::setCards(const QString &card_str)
-{
+void YijiViewAsSkill::setCards(const QString &card_str) {
     QStringList cards = card_str.split("+");
-    ids = Card::StringsToIds(cards);
+    ids = StringList2IntList(cards);
 }
 
-bool YijiViewAsSkill::viewFilter(const QList<const Card *> &, const Card* card) const
-{
-    return ids.contains(card->getId());
+void YijiViewAsSkill::setMaxNum(int max_num) {
+    this->max_num = max_num;
 }
 
-const Card *YijiViewAsSkill::viewAs(const QList<const Card *> &cards) const
-{
-    if(cards.isEmpty())
+void YijiViewAsSkill::setPlayerNames(const QStringList &names) {
+    card->setPlayerNames(names);
+}
+
+bool YijiViewAsSkill::viewFilter(const QList<const Card *> &selected, const Card *card) const{
+    return ids.contains(card->getId()) && selected.length() < max_num;
+}
+
+const Card *YijiViewAsSkill::viewAs(const QList<const Card *> &cards) const{
+    if (cards.isEmpty() || cards.length() > max_num)
         return NULL;
 
     card->clearSubcards();
     card->addSubcards(cards);
-
     return card;
 }
 
 // ------------------------------------------------
 
-class ChoosePlayerCard: public DummyCard{
+class ChoosePlayerCard: public DummyCard {
 public:
-    ChoosePlayerCard(){
+    ChoosePlayerCard() {
         target_fixed = false;
     }
 
-    void setPlayerNames(const QStringList &names){
+    void setPlayerNames(const QStringList &names) {
         set = names.toSet();
     }
 
@@ -171,16 +166,17 @@ private:
 };
 
 ChoosePlayerSkill::ChoosePlayerSkill()
-    :ZeroCardViewAsSkill("choose_player")
+    : ZeroCardViewAsSkill("choose_player")
 {
     card = new ChoosePlayerCard;
     card->setParent(this);
 }
 
-void ChoosePlayerSkill::setPlayerNames(const QStringList &names){
+void ChoosePlayerSkill::setPlayerNames(const QStringList &names) {
     card->setPlayerNames(names);
 }
 
 const Card *ChoosePlayerSkill::viewAs() const{
     return card;
 }
+

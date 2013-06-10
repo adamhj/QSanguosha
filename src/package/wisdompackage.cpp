@@ -154,7 +154,7 @@ public:
             CardUseStruct use = data.value<CardUseStruct>();
             card = use.card;
         }else if(triggerEvent == CardResponded)
-            card = data.value<ResponsedStruct>().m_card;
+            card = data.value<CardResponseStruct>().m_card;
 
         if(card && card->isNDTrick())
             if(room->askForSkillInvoke(jiangwei, objectName(), data))
@@ -172,8 +172,8 @@ public:
     }
 
     virtual bool trigger(TriggerEvent, Room* room, ServerPlayer *jiangwei, QVariant &data) const{
-        CardsMoveOneTimeStar move = data.value<CardsMoveOneTimeStar>();
-        if(move->from == jiangwei && move->from_places.contains(Player::PlaceHand) && jiangwei->isKongcheng())
+        CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
+        if(move.from == jiangwei && move.from_places.contains(Player::PlaceHand) && jiangwei->isKongcheng())
         {
             QList<ServerPlayer *> players;
             Slash *slash = new Slash(Card::NoSuit, 0);
@@ -355,8 +355,9 @@ WeidaiCard::WeidaiCard(){
     target_fixed = true;
 }
 
-const Card *WeidaiCard::validate(const CardUseStruct *card_use) const {
-    ServerPlayer *sunce = card_use->from;
+const Card *WeidaiCard::validate(CardUseStruct &card_use) const {
+    card_use.m_isOwnerUse = false;
+    ServerPlayer *sunce = card_use.from;
     Room *room = sunce->getRoom();
     foreach (ServerPlayer *liege, room->getLieges("wu", sunce)) {
         QVariant tohelp = QVariant::fromValue((PlayerStar)sunce);
@@ -371,7 +372,7 @@ const Card *WeidaiCard::validate(const CardUseStruct *card_use) const {
             return ana;
         }
     }
-    room->setPlayerFlag(sunce, "weidai_failed");
+    room->setPlayerFlag(sunce, "Global_WeidaiFailed");
     return NULL;
 }
 
@@ -389,7 +390,7 @@ const Card *WeidaiCard::validateInResponse(ServerPlayer *user, bool &continuable
             return ana;
         }
     }
-    room->setPlayerFlag(user, "weidai_failed");
+    room->setPlayerFlag(user, "Global_WeidaiFailed");
     return NULL;
 }
 
@@ -400,12 +401,12 @@ public:
 
     virtual bool isEnabledAtPlay(const Player *player) const {
         return hasWuGenerals(player) && player->hasLordSkill("weidai")
-               && !player->hasFlag("weidai_failed")
+               && !player->hasFlag("Global_WeidaiFailed")
                && Analeptic::IsAvailable(player);
     }
 
     virtual bool isEnabledAtResponse(const Player *player, const QString &pattern) const{
-        return hasWuGenerals(player) && pattern == "peach+analeptic" && !player->hasFlag("weidai_failed");
+        return hasWuGenerals(player) && pattern == "peach+analeptic" && !player->hasFlag("Global_WeidaiFailed");
     }
 
     virtual const Card *viewAs() const{
@@ -439,10 +440,10 @@ public:
                 room->setPlayerMark(player, objectName(), 0);
             }
         } else if (player->getPhase() == Player::Discard) {
-            CardsMoveOneTimeStar move = data.value<CardsMoveOneTimeStar>();
-            if (move->from == player && move->to_place == Player::DiscardPile
-                && (move->reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD) {
-                room->setPlayerMark(player, objectName(), player->getMark(objectName()) + move->card_ids.length());
+            CardsMoveOneTimeStruct move = data.value<CardsMoveOneTimeStruct>();
+            if (move.from == player
+                && (move.reason.m_reason & CardMoveReason::S_MASK_BASIC_REASON) == CardMoveReason::S_REASON_DISCARD) {
+                room->setPlayerMark(player, objectName(), player->getMark(objectName()) + move.card_ids.length());
             }
         }
         return false;
@@ -486,7 +487,7 @@ public:
 
 class Fuzuo: public TriggerSkill {
 public:
-    Fuzuo(): TriggerSkill("fuzuo") { // @todo_P: adjust AI
+    Fuzuo(): TriggerSkill("fuzuo") {
         events << PindianVerifying;
         view_as_skill = new FuzuoViewAsSkill;
     }
@@ -572,7 +573,7 @@ public:
     virtual bool trigger(TriggerEvent, Room* room, ServerPlayer *hua, QVariant &data) const{
         CardUseStruct use = data.value<CardUseStruct>();
         if(use.card->isKindOf("Slash") && use.card->isBlack() && use.to.contains(hua)){
-            room->askForUseCard(hua, "slash", "@askforslash"); // @todo_P: adjust AI
+            room->askForUseCard(hua, "slash", "@askforslash");
         }
         return false;
     }
@@ -677,7 +678,7 @@ public:
             CardUseStruct use = data.value<CardUseStruct>();
             card = use.card;
         }else if(triggerEvent == CardResponded)
-            card = data.value<ResponsedStruct>().m_card;
+            card = data.value<CardResponseStruct>().m_card;
 
         if(card && card->isKindOf("BasicCard")){
             if(room->askForSkillInvoke(tianfeng, objectName(), data)){
@@ -706,18 +707,18 @@ public:
     }
 
     virtual bool trigger(TriggerEvent, Room* room, ServerPlayer *tianfeng, QVariant &data) const{
-        DamageStar damage = data.value<DamageStar>();
+        DeathStruct death = data.value<DeathStruct>();
 
-        if(damage){
-            if(damage->from == tianfeng)
+        if(death.damage){
+            if(death.damage->from == tianfeng)
                 return false;
         }else{
-            damage = new DamageStruct;
-            damage->to = tianfeng;
-            data = QVariant::fromValue(damage);
+            death.damage = new DamageStruct;
+            death.damage->to = tianfeng;
+            data = QVariant::fromValue(death);
         }
 
-        damage->from = tianfeng;
+        death.damage->from = tianfeng;
 
         LogMessage log;
         log.type = "#TriggerSkill";
@@ -793,7 +794,7 @@ public:
         room->sendLog(log);
 
         room->broadcastSkillInvoke(objectName());
-        room->broadcastInvoke("animate", "lightbox:$JiehuoAnimate:3000");
+        room->doLightbox("$JiehuoAnimate", 3000);
         room->getThread()->delay(2500);
 
         room->setPlayerMark(player, "jiehuo", 1);
@@ -825,7 +826,7 @@ public:
             CardUseStruct use = data.value<CardUseStruct>();
             card = use.card;
         }else if(triggerEvent == CardResponded)
-            card = data.value<ResponsedStruct>().m_card;
+            card = data.value<CardResponseStruct>().m_card;
 
         if(card && card->isNDTrick()){
             ServerPlayer *shuijing = room->findPlayerBySkillName(objectName());
@@ -833,7 +834,7 @@ public:
                 return false;
 
             if(room->askForSkillInvoke(player, objectName(), QVariant::fromValue((PlayerStar)shuijing)))
-			{
+            {
                 LogMessage log;
                 log.type = "#InvokeOthersSkill";
                 log.from = player;
@@ -841,7 +842,7 @@ public:
                 log.arg = objectName();
                 room->sendLog(log);
                 shuijing->drawCards(1);
-			}
+            }
             else{
                 QString choice = room->askForChoice(player, "forbid_shien", "yes+no+maybe");
                 if(choice == "yes")

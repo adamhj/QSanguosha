@@ -57,7 +57,7 @@ local function getOwnCards(self, up, bottom, next_judge)
 			table.remove(bottom, index)
 			hasNext = true
 		else
-			if self.player:hasSkill("fuhun") then				
+			if self.player:hasSkill("nosfuhun") then
 				if not fuhun1 and gcard:isRed() then
 					table.insert(up, gcard) 
 					table.remove(bottom, index)
@@ -88,12 +88,12 @@ local function getOwnCards(self, up, bottom, next_judge)
 						and (isCard("Slash", gcard, self.player) or isCard("Duel", gcard, self.player)) then
 					table.insert(up, gcard) 
 					table.remove(bottom, index)
-					shuangxiong = true					
+					shuangxiong = true
 				end
 				if not shuangxiong and ((rednum > blacknum and gcard:isBlack()) or (blacknum > rednum and gcard:isRed())) then
 					table.insert(up, gcard) 
 					table.remove(bottom, index)
-					shuangxiong = true					
+					shuangxiong = true
 				end
 			elseif self:hasSkills("xianzhen|tianyi|dahe") then
 				local maxcard = self:getMaxCard(self.player)
@@ -105,8 +105,8 @@ local function getOwnCards(self, up, bottom, next_judge)
 				end
 				if isCard("Slash", gcard, self.player) then 
 					table.insert(up, gcard) 
-					table.remove(bottom, index)					
-				end				
+					table.remove(bottom, index)
+				end
 			else
 				if has_slash then 
 					if not gcard:isKindOf("Slash") then 
@@ -180,8 +180,14 @@ local function GuanXing(self, cards)
 	local count = #bottom
 	if count > 0 then
 		local zhaolieFlag = false
-		if self:hasSkills("zhaolie", self.player) then
-			zhaolieFlag = sgs.ai_skill_invoke.zhaolie(self, nil)
+		if self.player:hasSkill("zhaolie") then
+			local targets = sgs.SPlayerList()
+			for _, p in sgs.qlist(self.room:getOtherPlayers(self.player)) do
+				if self.player:inMyAttackRange(p) then targets:append(p) end
+			end
+			if target:length() > 0 then
+				zhaolieFlag = (sgs.ai_skill_playerchosen(self, targets) ~= nil)
+			end
 		end
 		if zhaolieFlag then 
 			local drawCount = 1 --自身摸牌数目，待完善
@@ -375,6 +381,10 @@ local function XinZhan(self, cards)
 end
 
 function SmartAI:askForGuanxing(cards, up_only)
+	--KOF模式--
+	local func = Tactic("guanxing", self, up_only)
+	if func then return func(self, cards) end
+	--身份局--
 	if not up_only then return GuanXing(self,cards)
 	else return XinZhan(self, cards)
 	end
