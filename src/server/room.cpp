@@ -3275,17 +3275,16 @@ ServerPlayer *Room::getFront(ServerPlayer *a, ServerPlayer *b) const{
 }
 
 void Room::reconnect(ServerPlayer *player, ClientSocket *socket) {
-    /*
     player->setSocket(socket);
     player->setState("online");
 
     marshal(player);
 
-    broadcastProperty(player, "state"); */
+    broadcastProperty(player, "state"); 
 }
 
 void Room::marshal(ServerPlayer *player) {
-    notifyProperty(player, player, "objectName");
+    /*notifyProperty(player, player, "objectName");
     notifyProperty(player, player, "role");
     player->unicast(".flags marshalling");
 
@@ -3314,7 +3313,7 @@ void Room::marshal(ServerPlayer *player) {
         p->marshal(player);
 
     player->unicast(".flags -marshalling");
-    player->invoke("setPileNumber", QString::number(m_drawPile->length()));
+    player->invoke("setPileNumber", QString::number(m_drawPile->length()));*/
 }
 
 void Room::startGame() {
