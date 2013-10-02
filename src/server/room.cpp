@@ -2571,13 +2571,6 @@ void Room::run() {
         startGame();
     } else {
         chooseGenerals();
-
-        QMap<QString, QVariant> emptymap;
-        QVariant emptyvar = QVariant::fromValue(emptymap);
-        foreach (ServerPlayer *p, m_players){
-            setPlayerProperty(p, "pile_open", emptyvar);
-        }
-
         startGame();
     }
 }
@@ -3310,6 +3303,14 @@ void Room::marshal(ServerPlayer *player) {
 }
 
 void Room::startGame() {
+
+    // pile open property for marshal
+    QMap<QString, QVariant> emptymap;
+    QVariant emptyvar = QVariant::fromValue(emptymap);
+    foreach (ServerPlayer *p, m_players){
+        setPlayerProperty(p, "pile_open", emptyvar);
+    }
+
     m_alivePlayers = m_players;
     for (int i = 0; i < player_count - 1; i++)
         m_players.at(i)->setNext(m_players.at(i + 1));
