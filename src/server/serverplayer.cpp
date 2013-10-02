@@ -1031,7 +1031,7 @@ void ServerPlayer::marshal(ServerPlayer *player) const{
         }
     }
 
-    if (isNormalGameMode(Config.GameMode) && getRole() == "lord")
+    if (hasShownRole())
         room->notifyProperty(player, this, "role");
 }
 
