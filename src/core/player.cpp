@@ -525,6 +525,10 @@ QList<const Card *> Player::getJudgingArea() const{
     return cards;
 }
 
+QList<int> Player::getJudgingAreaID() const{ //for marshal
+    return judging_area;
+}
+
 Player::Phase Player::getPhase() const{
     return phase;
 }
