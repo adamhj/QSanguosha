@@ -85,6 +85,9 @@ public:
     bool isFemale() const;
     bool isNeuter() const;
 
+    bool hasShownRole() const;
+    void setShownRole(bool shown);
+
     int getMaxCards() const;
 
     QString getKingdom() const;
@@ -151,6 +154,7 @@ public:
     bool hasEquip() const;
 
     QList<const Card *> getJudgingArea() const;
+    QList<int> getJudgingAreaID() const;
     void addDelayedTrick(const Card *trick);
     void removeDelayedTrick(const Card *trick);
     bool containsTrick(const char *trick_name) const;
@@ -194,6 +198,8 @@ public:
     QList<int> getPile(const char *pile_name);
     QStringList getPileNames() const;
     QString getPileName(int card_id) const;
+    bool pileOpen(const char *pile_name, const char *player) const;
+    void setPileOpen(const char *pile_name, const char *player);
 
     void addHistory(const char *name, int times = 1);
     void clearHistory();
