@@ -35,6 +35,8 @@ class Player: public QObject {
     Q_PROPERTY(QString flags READ getFlags WRITE setFlags)
     Q_PROPERTY(bool chained READ isChained WRITE setChained)
     Q_PROPERTY(bool owner READ isOwner WRITE setOwner)
+    Q_PROPERTY(bool ready READ isReady WRITE setReady)
+    Q_PROPERTY(int atk READ getAttackRange)
     Q_PROPERTY(bool role_shown READ hasShownRole WRITE setShownRole)
 
     Q_PROPERTY(bool kongcheng READ isKongcheng)
@@ -73,6 +75,9 @@ public:
 
     bool isOwner() const;
     void setOwner(bool owner);
+
+    bool isReady() const;
+    void setReady(bool ready);
 
     bool hasShownRole() const;
     void setShownRole(bool shown);
@@ -238,6 +243,7 @@ protected:
 private:
     QString screen_name;
     bool owner;
+    bool ready;
     const General *general, *general2;
     General::Gender m_gender;
     int hp, max_hp;
@@ -266,6 +272,7 @@ signals:
     void kingdom_changed();
     void phase_changed();
     void owner_changed(bool owner);
+    void ready_changed(bool ready);
 };
 
 #endif

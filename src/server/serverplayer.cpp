@@ -894,6 +894,9 @@ void ServerPlayer::introduceTo(ServerPlayer *player) {
         player->invoke("addPlayer", introduce_str);
     else
         room->broadcastInvoke("addPlayer", introduce_str, this);
+
+    if (isReady())
+        room->broadcastProperty(this, "ready");
 }
 
 void ServerPlayer::marshal(ServerPlayer *player) const{
@@ -959,10 +962,10 @@ void ServerPlayer::marshal(ServerPlayer *player) const{
         moves << move;
     }
 
-    if (!getJudgingAreaID().isEmpty()) {
+    if (!getJudgingArea().isEmpty()) {
         CardsMoveStruct move;
-        foreach (int card_id, getJudgingAreaID())
-            move.card_ids << card_id;
+        foreach (const Card *card, getJudgingArea())
+            move.card_ids << card->getId();
         move.from_place = DrawPile;
         move.to_player_name = objectName();
         move.to_place = PlaceDelayedTrick;

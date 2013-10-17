@@ -2306,8 +2306,22 @@ void Room::toggleReadyCommand(ServerPlayer *player, const QString &) {
     if (game_started)
         return;
 
-    if (isFull()) {
-        start();
+    setPlayerProperty(player, "ready", !player->isReady());
+
+    if (player->isReady() && isFull()) {
+        bool allReady = true;
+        foreach (ServerPlayer *player, m_players) {
+            if (!player->isReady()) {
+                allReady = false;
+                break;
+            }
+        }
+
+        if (allReady) {
+            foreach (ServerPlayer *player, m_players)
+                setPlayerProperty(player, "ready", false);
+            start();
+        }
     }
 }
 
