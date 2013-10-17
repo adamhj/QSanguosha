@@ -54,6 +54,7 @@ public:
     bool SurrenderAtDeath;
     ushort ServerPort;
     bool DisableLua;
+    int MaxIdleCount;
 
     // client side
     QString HostAddress;

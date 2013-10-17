@@ -20,6 +20,8 @@ class ServerPlayer: public Player {
     Q_PROPERTY(QString ip READ getIp)
 
 public:
+    int m_idleCount;
+
     explicit ServerPlayer(Room *room);
 
     void setSocket(ClientSocket *socket);

@@ -20,6 +20,7 @@ ServerPlayer::ServerPlayer(Room *room)
       ai(NULL), trust_ai(new TrustAI(this)), recorder(NULL),
       _m_phases_index(0), next(NULL), _m_clientResponse(Json::nullValue)
 {
+    this->m_idleCount = 0;
     semas = new QSemaphore *[S_NUM_SEMAPHORES];
     for (int i = 0; i < S_NUM_SEMAPHORES; i++)
         semas[i] = new QSemaphore(0);
@@ -804,8 +805,8 @@ void ServerPlayer::setAI(AI *ai) {
 AI *ServerPlayer::getAI() const{
     if (getState() == "online")
         return NULL;
-    else if (getState() == "trust" && !Config.EnableCheat)
-        return trust_ai;
+    //else if (getState() == "trust" && !Config.EnableCheat)
+    //    return trust_ai;
     else
         return ai;
 }

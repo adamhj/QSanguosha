@@ -845,8 +845,17 @@ bool Room::getResult(ServerPlayer *player, time_t timeOut) {
 
         if (Config.OperationNoLimit)
             player->acquireLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE);
-        else
-            player->tryAcquireLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE, timeOut);
+        else {
+            int maxIdleCount = Config.value("MaxIdleCount", 3).toInt();
+            if(player->tryAcquireLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE, timeOut))
+                player->m_idleCount = 0;
+            else {
+                player->m_idleCount++;
+                if (player->m_idleCount >= maxIdleCount)
+                    player->setState("trust");
+            }
+
+        }
 
         // Note that we rely on processResponse to filter out all unrelevant packet.
         // By the time the lock is released, m_clientResponse must be the right message
@@ -3808,7 +3817,7 @@ void Room::_moveCards(QList<CardsMoveStruct> cards_moves, bool forceMoveVisible,
     }
 
     for (int i = 0; i < cards_moves.size(); i++) {
-		CardsMoveStruct &cards_move = cards_moves[i];
+        CardsMoveStruct &cards_move = cards_moves[i];
         for (int j = 0; j < cards_move.card_ids.size(); j++) {
             int card_id = cards_move.card_ids[j];
             const Card *card = Sanguosha->getCard(card_id);
