@@ -2308,20 +2308,10 @@ void Room::toggleReadyCommand(ServerPlayer *player, const QString &) {
 
     setPlayerProperty(player, "ready", !player->isReady());
 
-    if (player->isReady() && isFull()) {
-        bool allReady = true;
-        foreach (ServerPlayer *player, m_players) {
-            if (!player->isReady()) {
-                allReady = false;
-                break;
-            }
-        }
-
-        if (allReady) {
-            foreach (ServerPlayer *player, m_players)
-                setPlayerProperty(player, "ready", false);
-            start();
-        }
+    if (isFull()) {
+        foreach (ServerPlayer *player, m_players)
+            setPlayerProperty(player, "ready", false);
+        start();
     }
 }
 
@@ -3289,7 +3279,7 @@ void Room::reconnect(ServerPlayer *player, ClientSocket *socket) {
     player->setState("online");
 
     marshal(player);
-
+	broadcastProperty(player, "ready");
     broadcastProperty(player, "state"); 
 }
 
@@ -3315,6 +3305,8 @@ void Room::marshal(ServerPlayer *player) {
 
         if (p->getGeneral2())
             notifyProperty(player, p, "general2");
+		notifyProperty(player, p, "ready", "true");
+		notifyProperty(player, p, "ready");
     }
 
     doNotify(player, S_COMMAND_GAME_START, Json::Value::null);
