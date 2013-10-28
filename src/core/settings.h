@@ -55,6 +55,7 @@ public:
     ushort ServerPort;
     bool DisableLua;
     int MaxIdleCount;
+	int IdleReservedTime;
 
     // client side
     QString HostAddress;

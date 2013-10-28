@@ -96,6 +96,8 @@ void Settings::init() {
     SurrenderAtDeath = value("SurrenderAtDeath", false).toBool();
     ServerPort = value("ServerPort", 9527u).toUInt();
     DisableLua = value("DisableLua", false).toBool();
+	MaxIdleCount = value("MaxIdleCount", 3).toInt();
+	IdleReservedTime = value("IdleReservedTime", 1000).toInt();
 
 #ifdef Q_OS_WIN32
     UserName = value("UserName", qgetenv("USERNAME")).toString();
