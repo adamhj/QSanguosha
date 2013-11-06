@@ -716,9 +716,28 @@ ServerPlayer *Room::getRaceResult(QList<ServerPlayer *> &players, QSanProtocol::
     QTime timer;
     timer.start();
     bool validResult = false;
+	bool idleReservedEntered = false;
+	int maxIdleCount = Config.MaxIdleCount;
+	int idleReservedTime = Config.IdleReservedTime;
     for (int i = 0; i < players.size(); i++) {
         time_t timeRemain = timeOut - timer.elapsed();
-        if (timeRemain < 0) timeRemain = 0;
+		if (!idleReservedEntered && !Config.OperationNoLimit) {
+			timeRemain -= idleReservedTime;
+			if (timeRemain <= 0) {
+				idleReservedEntered = true;
+				timeRemain += idleReservedTime;
+				foreach (ServerPlayer *player, players) {
+					if (player->m_isWaitingReply) {
+						player->m_idleCount++;
+						//if (player->m_idleCount >= maxIdleCount)
+						//	trustCommand(player, "");
+					}
+					else
+						player->m_idleCount = 0;
+				}
+			}
+		}
+		if (timeRemain < 0) timeRemain = 0;
         bool tryAcquireResult = true;
         if (Config.OperationNoLimit)
             _m_semRaceRequest.acquire();
@@ -726,8 +745,13 @@ ServerPlayer *Room::getRaceResult(QList<ServerPlayer *> &players, QSanProtocol::
             tryAcquireResult = _m_semRaceRequest.tryAcquire(1, timeRemain);
 
         if (!tryAcquireResult)
-            _m_semRoomMutex.tryAcquire(1);
-        // So that processResponse cannot update raceWinner when we are reading it.
+			if(!idleReservedEntered) {
+				i--;		//we need one more loop for idle reserved section
+				continue;
+			}
+			else
+				_m_semRoomMutex.tryAcquire(1);
+			// So that processResponse cannot update raceWinner when we are reading it.
 
         if (_m_raceWinner == NULL) {
             _m_semRoomMutex.release();
@@ -757,6 +781,10 @@ ServerPlayer *Room::getRaceResult(QList<ServerPlayer *> &players, QSanProtocol::
         player->releaseLock(ServerPlayer::SEMA_MUTEX);
     }
     _m_semRoomMutex.release();
+
+	foreach (ServerPlayer *player, players)
+		if (player->m_idleCount >= maxIdleCount && player->getState() != "trust")
+			trustCommand(player, "");
     return _m_raceWinner;
 }
 
@@ -846,15 +874,22 @@ bool Room::getResult(ServerPlayer *player, time_t timeOut) {
         if (Config.OperationNoLimit)
             player->acquireLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE);
         else {
-            int maxIdleCount = Config.value("MaxIdleCount", 3).toInt();
-            if(player->tryAcquireLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE, timeOut))
+			int maxIdleCount = Config.MaxIdleCount;
+			int idleReservedTime = Config.IdleReservedTime;
+			int userTimeOut = timeOut - idleReservedTime;
+			int reservedTime = idleReservedTime;
+			if(userTimeOut < 0) {
+				userTimeOut = 0;
+				reservedTime = timeOut;
+			}
+            if(player->tryAcquireLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE, userTimeOut))
                 player->m_idleCount = 0;
             else {
+				player->tryAcquireLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE, reservedTime);
                 player->m_idleCount++;
-                if (player->m_idleCount >= maxIdleCount)
-                    player->setState("trust");
+                if (player->m_idleCount >= maxIdleCount && player->getState() != "trust")
+                    trustCommand(player, "");
             }
-
         }
 
         // Note that we rely on processResponse to filter out all unrelevant packet.
