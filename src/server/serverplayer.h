@@ -178,6 +178,7 @@ private:
 private slots:
     void getMessage(const char *message);
     void sendMessage(const QString &message);
+    bool emitSetProperty(const char *property_name, const QVariant &value);
 
 signals:
     void disconnected();

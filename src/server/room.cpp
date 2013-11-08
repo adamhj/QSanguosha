@@ -1587,7 +1587,11 @@ void Room::setPlayerFlag(ServerPlayer *player, const QString &flag) {
 }
 
 void Room::setPlayerProperty(ServerPlayer *player, const char *property_name, const QVariant &value) {
-    player->setProperty(property_name, value);
+    if (player->thread() != QThread::currentThread())
+        QMetaObject::invokeMethod(player, "emitSetProperty", Qt::BlockingQueuedConnection, Q_ARG(const char *, property_name), Q_ARG(const QVariant, value));
+    else
+        player->setProperty(property_name, value);
+    //player->setProperty(property_name, value);
     broadcastProperty(player, property_name);
 
     if (strcmp(property_name, "hp") == 0)

@@ -311,6 +311,10 @@ void ServerPlayer::sendMessage(const QString &message) {
     }
 }
 
+bool ServerPlayer::emitSetProperty(const char *property_name, const QVariant &value) {
+    return this->setProperty(property_name, value);
+}
+
 void ServerPlayer::invoke(const QSanPacket *packet) {
     unicast(QString(packet->toString().c_str()));
 }
