@@ -2143,7 +2143,8 @@ void Room::trustCommand(ServerPlayer *player, const QString &) {
     if (player->isOnline()) {
         player->setState("trust");
         if (player->m_isWaitingReply) {
-            player->releaseLock(ServerPlayer::SEMA_MUTEX);
+            //player->releaseLock(ServerPlayer::SEMA_MUTEX);
+            //emit room_message(tr("AlivableLock = %1").arg(player->availableLock(ServerPlayer::SEMA_MUTEX)));
             player->releaseLock(ServerPlayer::SEMA_COMMAND_INTERACTIVE);
         }
     } else

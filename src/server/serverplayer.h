@@ -130,6 +130,7 @@ public:
         return semas[type]->tryAcquire(1, timeout); 
     }
     inline void releaseLock(SemaphoreType type) { semas[type]->release(); }
+    inline int availableLock(SemaphoreType type) { return semas[type]->available(); }
     inline void drainLock(SemaphoreType type) { while (semas[type]->tryAcquire()) {} }
     inline void drainAllLocks() {
         for (int i  =0; i < S_NUM_SEMAPHORES; i++) {
