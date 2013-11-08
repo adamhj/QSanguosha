@@ -3347,6 +3347,7 @@ void Room::marshal(ServerPlayer *player) {
             notifyProperty(player, p, "general2");
 		notifyProperty(player, p, "ready", "true");
 		notifyProperty(player, p, "ready");
+        notifyProperty(player, p, "state");
     }
 
     doNotify(player, S_COMMAND_GAME_START, Json::Value::null);
