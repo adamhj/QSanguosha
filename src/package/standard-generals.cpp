@@ -38,7 +38,7 @@ public:
     }
 
     virtual bool trigger(TriggerEvent, Room *room, ServerPlayer *caocao, QVariant &data) const{
-		QString pattern = data.toStringList().first();
+        QString pattern = data.toStringList().first();
         QString prompt = data.toStringList().at(1);
         if (pattern != "jink" || prompt.startsWith("@hujia-jink"))
             return false;

@@ -149,11 +149,11 @@ void Slash::onUse(Room *room, const CardUseStruct &card_use) const{
                 }
             }
             name = "huxiao";
-		}
+        }
         if (!name.isEmpty()) {
             player->setFlags("-Global_MoreSlashInOneTurn");
             if (name == "huxiao")
-    		    room->broadcastSkillInvoke("huxiao", toSunquan ? 3 : qrand() % 2 + 1);
+                room->broadcastSkillInvoke("huxiao", toSunquan ? 3 : qrand() % 2 + 1);
             else
                 room->broadcastSkillInvoke(name);
             room->notifySkillInvoked(player, name);

@@ -478,7 +478,7 @@ public:
     }
 
     virtual bool triggerable(const ServerPlayer *target) const {
-		return target != NULL && target->hasInnateSkill(objectName());
+        return target != NULL && target->hasInnateSkill(objectName());
     }
 
     virtual bool trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const{

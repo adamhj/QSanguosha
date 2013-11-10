@@ -1740,7 +1740,7 @@ public:
 
     virtual bool trigger(TriggerEvent, Room* room, ServerPlayer *player, QVariant &data) const{
         DamageStruct damage = data.value<DamageStruct>();
-		if(damage.to->getGeneralName().contains("caocao") && player->askForSkillInvoke(objectName(), data)){
+        if(damage.to->getGeneralName().contains("caocao") && player->askForSkillInvoke(objectName(), data)){
             LogMessage log;
             log.type = "#YitianSolace";
             log.from = player;

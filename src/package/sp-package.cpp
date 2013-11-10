@@ -282,7 +282,7 @@ public:
             JijiangViewAsSkill *jijiang = new JijiangViewAsSkill;
             jijiang->deleteLater();
             return jijiang->isEnabledAtResponse(player, pattern);
-		}
+        }
         
         return false;
     }

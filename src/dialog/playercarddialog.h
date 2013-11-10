@@ -21,7 +21,7 @@ class PlayerCardDialog: public QDialog {
     Q_OBJECT
 
 public:
-	explicit PlayerCardDialog(const ClientPlayer *player, const QString &flags = "hej", bool handcard_visible = false, Card::HandlingMethod method = Card::MethodNone);
+    explicit PlayerCardDialog(const ClientPlayer *player, const QString &flags = "hej", bool handcard_visible = false, Card::HandlingMethod method = Card::MethodNone);
 
 private:
     QWidget *createAvatar();
