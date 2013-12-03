@@ -2554,13 +2554,19 @@ void Room::run() {
 
     prepareForStart();
 
+    Server *server = qobject_cast<Server *>(parent());
+    foreach (ServerPlayer *player, m_players) {
+        if (player->getState() != "robot")
+            server->signupPlayer(player);
+    }
+
     bool using_countdown = true;
     if (_virtual || !property("to_test").toString().isEmpty())
         using_countdown = false;
 
-#ifndef QT_NO_DEBUG
-    using_countdown = false;
-#endif
+//#ifndef QT_NO_DEBUG
+//    using_countdown = false;
+//#endif
 
     if (using_countdown) {
         for (int i = Config.CountDownSeconds; i >= 0; i--) {
@@ -3341,25 +3347,29 @@ void Room::marshal(ServerPlayer *player) {
     player->invoke("startInXs", "0");
 
     foreach (ServerPlayer *p, m_players) {
-        notifyProperty(player, p, "general");
-
-        if (p->getGeneral2())
-            notifyProperty(player, p, "general2");
         notifyProperty(player, p, "ready", "true");
         notifyProperty(player, p, "ready");
         notifyProperty(player, p, "state");
     }
 
-    doNotify(player, S_COMMAND_GAME_START, Json::Value::null);
+    if (this->game_started) {
+        foreach (ServerPlayer *p, m_players) {
+            notifyProperty(player, p, "general");
+            if (p->getGeneral2())
+                notifyProperty(player, p, "general2");
+        }
 
-    QList<int> drawPile = Sanguosha->getRandomCards();
-    doNotify(player, S_COMMAND_AVAILABLE_CARDS, toJsonArray(drawPile));
+        doNotify(player, S_COMMAND_GAME_START, Json::Value::null);
 
-    foreach (ServerPlayer *p, m_players)
-        p->marshal(player);
+        QList<int> drawPile = Sanguosha->getRandomCards();
+        doNotify(player, S_COMMAND_AVAILABLE_CARDS, toJsonArray(drawPile));
 
-    notifyProperty(player, player, "flags", "-marshalling");
-    doNotify(player, S_COMMAND_UPDATE_PILE, Json::Value(m_drawPile->length()));
+        foreach (ServerPlayer *p, m_players)
+            p->marshal(player);
+
+        notifyProperty(player, player, "flags", "-marshalling");
+        doNotify(player, S_COMMAND_UPDATE_PILE, Json::Value(m_drawPile->length()));
+    }
 }
 
 void Room::startGame() {
@@ -3407,11 +3417,11 @@ void Room::startGame() {
     doBroadcastNotify(S_COMMAND_GAME_START, Json::Value::null);
     game_started = true;
 
-    Server *server = qobject_cast<Server *>(parent());
-    foreach (ServerPlayer *player, m_players) {
-        if (player->getState() == "online")
-            server->signupPlayer(player);
-    }
+    //Server *server = qobject_cast<Server *>(parent());
+    //foreach (ServerPlayer *player, m_players) {
+    //    if (player->getState() == "online")
+    //        server->signupPlayer(player);
+    //}
 
     current = m_players.first();
 
