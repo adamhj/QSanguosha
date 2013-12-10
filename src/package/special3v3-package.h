@@ -50,6 +50,8 @@ class VSCrossbow: public Crossbow {
 
 public:
     Q_INVOKABLE VSCrossbow(Card::Suit suit, int number = 1);
+
+    virtual bool match(const QString &pattern) const;
 };
 
 class Special3v3Package: public Package {
@@ -57,13 +59,6 @@ class Special3v3Package: public Package {
 
 public:
     Special3v3Package();
-};
-
-class Special3v3_2013Package: public Package {
-    Q_OBJECT
-
-public:
-    Special3v3_2013Package();
 };
 
 class New3v3CardPackage: public Package {

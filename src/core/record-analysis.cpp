@@ -61,6 +61,10 @@ void RecAnalysis::initialize(QString dir) {
 
             QStringList texts = rx.capturedTexts();
             m_recordGameMode = texts.at(2);
+            if (texts.startsWith("02_1v1"))
+                m_recordGameMode = "02_1v1";
+            else if (texts.startsWith("06_3v3"))
+                m_recordGameMode = "06_3v3";
             m_recordPlayers = texts.at(2).split("_").first().remove(QRegExp("[^0-9]")).toInt();
             QStringList ban_packages = texts.at(5).split("+");
             foreach (Package *package, Sanguosha->findChildren<Package *>()) {
@@ -450,8 +454,8 @@ void RecAnalysis::addDesignation(const QString &designation,
         }
 
         if (need_lose
-            && m_recordWinners.contains(m_recordMap[objectName]->m_role)
-            && !m_recordWinners.contains(objectName)) {
+            && (m_recordWinners.contains(m_recordMap[objectName]->m_role)
+                || m_recordWinners.contains(objectName))) {
             has_player = false;
         }
 

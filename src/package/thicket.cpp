@@ -23,11 +23,7 @@ public:
             bool isCaoCao = player->getGeneralName().contains("caocao");
             room->broadcastSkillInvoke(objectName(), (isCaoCao ? 3 : (player->isMale() ? 1 : 2)));
 
-            DummyCard *dummy = new DummyCard;
-            QList <const Card *> handcards = player->getHandcards();
-            foreach (const Card *card, handcards)
-                dummy->addSubcard(card);
-
+            DummyCard *dummy = new DummyCard(player->handCards());
             QList <const Card *> equips = player->getEquips();
             foreach (const Card *card, equips)
                 dummy->addSubcard(card);
@@ -52,14 +48,13 @@ public:
         Room *room = caopi->getRoom();
         ServerPlayer *to = room->askForPlayerChosen(caopi, room->getOtherPlayers(caopi), objectName(),
                                                     "fangzhu-invoke", caopi->getMark("JilveEvent") != int(Damaged), true);
-        if (to) {
-            to->drawCards(caopi->getLostHp());
-
+        if (to) {           
             if (caopi->hasInnateSkill("fangzhu") || !caopi->hasSkill("jilve"))
-                room->broadcastSkillInvoke("fangzhu", to->faceUp() ? 1 : 2);
+                room->broadcastSkillInvoke("fangzhu", to->faceUp() ? 1 : 2); // @todo_P: audios
             else
                 room->broadcastSkillInvoke("jilve", 2);
 
+            to->drawCards(caopi->getLostHp());
             to->turnOver();
         }
     }
@@ -112,10 +107,7 @@ public:
 class Duanliang: public OneCardViewAsSkill {
 public:
     Duanliang(): OneCardViewAsSkill("duanliang") {
-    }
-
-    virtual bool viewFilter(const Card *card) const{
-        return card->isBlack() && (card->isKindOf("BasicCard") || card->isKindOf("EquipCard"));
+        filter_pattern = "BasicCard,EquipCard|black";
     }
 
     virtual const Card *viewAs(const Card *originalCard) const{
@@ -251,11 +243,8 @@ public:
                 bool has_heart = false;
                 int x = menghuo->getLostHp();
                 QList<int> ids = room->getNCards(x, false);
-                CardsMoveStruct move;
-                move.card_ids = ids;
-                move.to = menghuo;
-                move.to_place = Player::PlaceTable;
-                move.reason = CardMoveReason(CardMoveReason::S_REASON_TURNOVER, menghuo->objectName(), "zaiqi", QString());
+                CardsMoveStruct move(ids, menghuo, Player::PlaceTable,
+                                     CardMoveReason(CardMoveReason::S_REASON_TURNOVER, menghuo->objectName(), "zaiqi", QString()));
                 room->moveCardsAtomic(move, true);
 
                 room->getThread()->delay();
@@ -270,12 +259,9 @@ public:
                         card_to_gotback << ids[i];
                 }
                 if (!card_to_throw.isEmpty()) {
-                    DummyCard *dummy = new DummyCard;
-                    foreach (int id, card_to_throw)
-                        dummy->addSubcard(id);
+                    DummyCard *dummy = new DummyCard(card_to_throw);
 
                     RecoverStruct recover;
-                    recover.card = dummy;
                     recover.who = menghuo;
                     recover.recover = card_to_throw.length();
                     room->recover(menghuo, recover);
@@ -286,10 +272,7 @@ public:
                     has_heart = true;
                 }
                 if (!card_to_gotback.isEmpty()) {
-                    DummyCard *dummy2 = new DummyCard;
-                    foreach (int id, card_to_gotback)
-                        dummy2->addSubcard(id);
-
+                    DummyCard *dummy2 = new DummyCard(card_to_gotback);
                     CardMoveReason reason(CardMoveReason::S_REASON_GOTBACK, menghuo->objectName());
                     room->obtainCard(menghuo, dummy2, reason);
                     dummy2->deleteLater();
@@ -405,6 +388,7 @@ HaoshiCard::HaoshiCard() {
     will_throw = false;
     mute = true;
     handling_method = Card::MethodNone;
+    m_skillName = "_haoshi";
 }
 
 bool HaoshiCard::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const{
@@ -414,13 +398,16 @@ bool HaoshiCard::targetFilter(const QList<const Player *> &targets, const Player
     return to_select->getHandcardNum() == Self->getMark("haoshi");
 }
 
-void HaoshiCard::use(Room *room, ServerPlayer *, QList<ServerPlayer *> &targets) const{
-    room->moveCardTo(this, targets.first(), Player::PlaceHand, false);
+void HaoshiCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const{
+    CardMoveReason reason(CardMoveReason::S_REASON_GIVE, source->objectName(),
+                          targets.first()->objectName(), "haoshi", QString());
+    room->moveCardTo(this, targets.first(), Player::PlaceHand, reason);
 }
 
 class HaoshiViewAsSkill: public ViewAsSkill {
 public:
     HaoshiViewAsSkill(): ViewAsSkill("haoshi") {
+        response_pattern = "@@haoshi!";
     }
 
     virtual bool viewFilter(const QList<const Card *> &selected, const Card *to_select) const{
@@ -438,14 +425,6 @@ public:
         HaoshiCard *card = new HaoshiCard;
         card->addSubcards(cards);
         return card;
-    }
-
-    virtual bool isEnabledAtPlay(const Player *) const{
-        return false;
-    }
-
-    virtual bool isEnabledAtResponse(const Player *, const QString &pattern) const{
-        return pattern == "@@haoshi!";
     }
 };
 
@@ -482,8 +461,7 @@ public:
                 int n = lusu->getHandcardNum() / 2;
                 QList<int> to_give = lusu->handCards().mid(0, n);
                 HaoshiCard *haoshi_card = new HaoshiCard;
-                foreach (int card_id, to_give)
-                    haoshi_card->addSubcard(card_id);
+                haoshi_card->addSubcards(to_give);
                 QList<ServerPlayer *> targets;
                 targets << beggar;
                 haoshi_card->use(room, lusu, targets);
@@ -533,7 +511,7 @@ bool DimengCard::targetsFeasible(const QList<const Player *> &targets, const Pla
 }
 
 #include "jsonutils.h"
-void DimengCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const{
+void DimengCard::use(Room *room, ServerPlayer *, QList<ServerPlayer *> &targets) const{
     ServerPlayer *a = targets.at(0);
     ServerPlayer *b = targets.at(1);
     a->setFlags("DimengTarget");
@@ -549,14 +527,10 @@ void DimengCard::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &ta
                                QSanProtocol::Utils::toJsonArray(a->objectName(), b->objectName()));
         }
         QList<CardsMoveStruct> exchangeMove;
-        CardsMoveStruct move1;
-        move1.card_ids = a->handCards();
-        move1.to = b;
-        move1.to_place = Player::PlaceHand;
-        CardsMoveStruct move2;
-        move2.card_ids = b->handCards();
-        move2.to = a;
-        move2.to_place = Player::PlaceHand;
+        CardsMoveStruct move1(a->handCards(), b, Player::PlaceHand,
+                              CardMoveReason(CardMoveReason::S_REASON_SWAP, a->objectName(), b->objectName(), "dimeng", QString()));
+        CardsMoveStruct move2(b->handCards(), a, Player::PlaceHand,
+                              CardMoveReason(CardMoveReason::S_REASON_SWAP, b->objectName(), a->objectName(), "dimeng", QString()));
         exchangeMove.push_back(move1);
         exchangeMove.push_back(move2);
         room->moveCards(exchangeMove, false);
@@ -662,6 +636,7 @@ class Luanwu: public ZeroCardViewAsSkill {
 public:
     Luanwu(): ZeroCardViewAsSkill("luanwu") {
         frequency = Limited;
+        limit_mark = "@chaos";
     }
 
     virtual const Card *viewAs() const{
@@ -723,13 +698,14 @@ public:
 
     virtual bool isProhibited(const Player *, const Player *to, const Card *card, const QList<const Player *> &) const{
         return to->hasSkill(objectName()) && (card->isKindOf("TrickCard") || card->isKindOf("QiceCard"))
-               && card->isBlack() && card->getSkillName() != "guhuo"; // Be care!!!!!!
+               && card->isBlack() && card->getSkillName() != "nosguhuo"; // Be care!!!!!!
     }
 };
 
 class Jiuchi: public OneCardViewAsSkill {
 public:
     Jiuchi(): OneCardViewAsSkill("jiuchi") {
+        filter_pattern = ".|spade|.|hand";
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const{
@@ -738,10 +714,6 @@ public:
 
     virtual bool isEnabledAtResponse(const Player *, const QString &pattern) const{
         return  pattern.contains("analeptic");
-    }
-
-    virtual bool viewFilter(const Card *to_select) const{
-        return !to_select->isEquipped() && to_select->getSuit() == Card::Spade;
     }
 
     virtual const Card *viewAs(const Card *originalCard) const{
@@ -773,8 +745,7 @@ public:
                 foreach (ServerPlayer *p, use.to) {
                     if (p->isFemale()) {
                         play_effect = true;
-                        int n = jink_list.at(index).toInt();
-                        if (n > 0 && n < 2)
+                        if (jink_list.at(index).toInt() == 1)
                             jink_list.replace(index, QVariant(2));
                     }
                     index++;
@@ -794,8 +765,7 @@ public:
                 foreach (ServerPlayer *p, use.to) {
                     if (p->hasSkill(objectName())) {
                         play_effect = true;
-                        int n = jink_list.at(index).toInt();
-                        if (n > 0 && n < 2)
+                        if (jink_list.at(index).toInt() == 1)
                             jink_list.replace(index, QVariant(2));
                     }
                     index++;
@@ -850,7 +820,7 @@ public:
             room->notifySkillInvoked(dongzhuo, objectName());
 
             QString result = room->askForChoice(dongzhuo, "benghuai", "hp+maxhp");
-            int index = (dongzhuo->isFemale()) ? 2 : 1;
+            int index = (dongzhuo->isFemale()) ? 2 : 1; //@todo_P: audios
             room->broadcastSkillInvoke(objectName(), index);
             if (result == "hp")
                 room->loseHp(dongzhuo);
@@ -931,7 +901,6 @@ ThicketPackage::ThicketPackage()
     caopi->addSkill(new Xingshang);
     caopi->addSkill(new Fangzhu);
     caopi->addSkill(new Songwei);
-    caopi->addSkill(new SPConvertSkill("caopi", "heg_caopi"));
 
     General *menghuo = new General(this, "menghuo", "shu"); // SHU 014
     menghuo->addSkill(new SavageAssaultAvoid("huoshou"));
@@ -964,11 +933,8 @@ ThicketPackage::ThicketPackage()
 
     General *jiaxu = new General(this, "jiaxu", "qun", 3); // QUN 007
     jiaxu->addSkill(new Wansha);
-    jiaxu->addSkill(new MarkAssignSkill("@chaos", 1));
     jiaxu->addSkill(new Luanwu);
     jiaxu->addSkill(new Weimu);
-    jiaxu->addSkill(new SPConvertSkill("jiaxu", "sp_jiaxu"));
-    related_skills.insertMulti("luanwu", "#@chaos-1");
 
     addMetaObject<DimengCard>();
     addMetaObject<LuanwuCard>();

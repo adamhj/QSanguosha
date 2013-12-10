@@ -68,7 +68,7 @@ local function getOwnCards(self, up, bottom, next_judge)
 					table.remove(bottom, index)
 					fuhun2 = true
 				end
-				if not fuhun2 and gcard:isBlack() and card:getTypeId() == sgs.Card_Equip then
+				if not fuhun2 and gcard:isBlack() and gcard:getTypeId() == sgs.Card_Equip then
 					table.insert(up, gcard) 
 					table.remove(bottom, index)
 					fuhun2 = true
@@ -333,8 +333,7 @@ local function XinZhan(self, cards)
 		local index = 1
 		local lightning_flag = false
 		local judge_str = sgs.ai_judgestring[need_judge:objectName()] or sgs.ai_judgestring[need_judge:getSuitString()]
-		self:log("------------------>"..judge_str ..":")
-		
+
 		for _, for_judge in ipairs(bottom) do
 			if judge_str == "spade" and not lightning_flag then
 				has_lightning = need_judge

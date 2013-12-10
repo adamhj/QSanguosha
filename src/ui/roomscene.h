@@ -8,9 +8,9 @@
 #include "client.h"
 #include "aux-skills.h"
 #include "clientlogbox.h"
-#include "sprite.h"
 #include "chatwidget.h"
 #include "SkinBank.h"
+#include "sprite.h"
 #include "qsanbutton.h"
 
 class Window;
@@ -126,6 +126,8 @@ public:
     void updateTable();
     inline QMainWindow *mainWindow() { return main_window; }
 
+    inline bool isCancelButtonEnabled() const{ return cancel_button != NULL && cancel_button->isEnabled(); }
+
     bool m_skillButtonSank;
 
 public slots:
@@ -139,7 +141,7 @@ public slots:
     void chooseGeneral(const QStringList &generals);
     void chooseSuit(const QStringList &suits);
     void chooseCard(const ClientPlayer *playerName, const QString &flags, const QString &reason,
-                    bool handcard_visible, Card::HandlingMethod method);
+                    bool handcard_visible, Card::HandlingMethod method, QList<int> disabled_ids);
     void chooseKingdom(const QStringList &kingdoms);
     void chooseOption(const QString &skillName, const QStringList &options);
     void chooseOrder(QSanProtocol::Game3v3ChooseOrderCommand reason);
@@ -161,10 +163,13 @@ public slots:
     void makeKilling();
     void makeReviving();
     void doScript();
+    void viewGenerals(const QString &reason, const QStringList &names);
 
     void handleGameEvent(const Json::Value &arg);
 
-    EffectAnimation *getEA() const{ return animations; }
+    void doOkButton();
+    void doCancelButton();
+    void doDiscardButton();
     
 protected:    
     virtual void mousePressEvent(QGraphicsSceneMouseEvent *event);
@@ -286,6 +291,7 @@ private:
     void fillGenerals3v3(const QStringList &names);
 
     void showPindianBox(const QString &from_name, int from_id, const QString &to_name, int to_id, const QString &reason);
+    void setChatBoxVisible(bool show);
 
     // animation related functions
     typedef void (RoomScene::*AnimationFunc)(const QString &, const QStringList &);
@@ -307,6 +313,8 @@ private:
     // for miniscenes
     int _m_currentStage;
 
+    QRectF _m_infoPlane;
+
 private slots:
     void fillCards(const QList<int> &card_ids, const QList<int> &disabled_ids = QList<int>());
     void updateSkillButtons();
@@ -315,9 +323,6 @@ private slots:
     void updateTrustButton();
     void onSkillActivated();
     void onSkillDeactivated();
-    void doOkButton();
-    void doCancelButton();
-    void doDiscardButton();
     void doTimeout();
     void startInXs();
     void hideAvatars();
@@ -350,7 +355,6 @@ private slots:
     void appendChatBox(QString txt);
 
     //animations
-    void onSelectChange();
     void onEnabledChange();
 
     void takeAmazingGrace(ClientPlayer *taker, int card_id, bool move_cards);
@@ -358,7 +362,7 @@ private slots:
     void attachSkill(const QString &skill_name, bool from_left);
     void detachSkill(const QString &skill_name);
 
-    void doGongxin(const QList<int> &card_ids, bool enable_heart);
+    void doGongxin(const QList<int> &card_ids, bool enable_heart, QList<int> enabled_ids);
 
     void startAssign();
 
@@ -366,7 +370,7 @@ private slots:
 
     // 3v3 mode & 1v1 mode
     void fillGenerals(const QStringList &names);
-    void takeGeneral(const QString &who, const QString &name);
+    void takeGeneral(const QString &who, const QString &name, const QString &rule);
     void recoverGeneral(int index, const QString &name);
     void startGeneralSelection();
     void selectGeneral();

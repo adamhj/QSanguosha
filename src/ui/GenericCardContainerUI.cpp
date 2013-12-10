@@ -11,6 +11,7 @@
 #include "engine.h"
 #include "standard.h"
 #include "clientplayer.h"
+#include "roomscene.h"
 
 using namespace QSanProtocol;
 
@@ -193,23 +194,30 @@ void PlayerCardContainer::updateAvatar() {
         if (m_player->getGeneral() != NULL) {
             QString kingdom = m_player->getKingdom();
             _paintPixmap(_m_kingdomIcon, _m_layout->m_kingdomIconArea,
-                         G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_ICON, kingdom),
-                         this->_getAvatarParent());
+                         G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_ICON, kingdom), _getAvatarParent());
             _paintPixmap(_m_kingdomColorMaskIcon, _m_layout->m_kingdomMaskArea,
-                         G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK, kingdom),
-                         this->_getAvatarParent());
+                         G_ROOM_SKIN.getPixmap(QSanRoomSkin::S_SKIN_KEY_KINGDOM_COLOR_MASK, kingdom), _getAvatarParent());
+            _paintPixmap(_m_handCardBg, _m_layout->m_handCardArea,
+                         _getPixmap(QSanRoomSkin::S_SKIN_KEY_HANDCARDNUM, kingdom), _getAvatarParent());
             QString name = Sanguosha->translate("&" + general->objectName());
             if (name.startsWith("&"))
                 name = Sanguosha->translate(general->objectName());
             _m_layout->m_avatarNameFont.paintText(_m_avatarNameItem, 
                                                   _m_layout->m_avatarNameArea,
                                                   Qt::AlignLeft | Qt::AlignJustify, name);
-        }        
+        } else {
+            _paintPixmap(_m_handCardBg, _m_layout->m_handCardArea,
+                         _getPixmap(QSanRoomSkin::S_SKIN_KEY_HANDCARDNUM, QSanRoomSkin::S_SKIN_KEY_DEFAULT_SECOND),
+                         _getAvatarParent());
+        }
     } else {
         _paintPixmap(_m_avatarIcon, _m_layout->m_avatarArea,
                      QSanRoomSkin::S_SKIN_KEY_BLANK_GENERAL, _getAvatarParent());
         _clearPixmap(_m_kingdomColorMaskIcon);
         _clearPixmap(_m_kingdomIcon);
+        _paintPixmap(_m_handCardBg, _m_layout->m_handCardArea,
+                     _getPixmap(QSanRoomSkin::S_SKIN_KEY_HANDCARDNUM, QSanRoomSkin::S_SKIN_KEY_DEFAULT_SECOND),
+                     _getAvatarParent());
         _m_avatarArea->setToolTip(QString());
     }
     _m_avatarIcon->show();
@@ -246,13 +254,14 @@ void PlayerCardContainer::updateSmallAvatar() {
                                                    Qt::AlignLeft | Qt::AlignJustify, name);
         _m_smallAvatarIcon->show();
     } else {
+        _clearPixmap(_m_smallAvatarIcon);
+        _clearPixmap(_m_circleItem);
+        _m_layout->m_smallAvatarNameFont.paintText(_m_smallAvatarNameItem,
+                                                   _m_layout->m_smallAvatarNameArea,
+                                                   Qt::AlignLeft | Qt::AlignJustify, QString());
         _m_smallAvatarArea->setToolTip(QString());
     }
     _adjustComponentZValues();
-}
-
-void PlayerCardContainer::updateReadyItem(bool visible) {
-    _m_readyIcon->setVisible(visible);
 }
 
 void PlayerCardContainer::updatePhase() {
@@ -423,15 +432,11 @@ void PlayerCardContainer::repaintAll() {
 
     _paintPixmap(_m_faceTurnedIcon, _m_layout->m_avatarArea, QSanRoomSkin::S_SKIN_KEY_FACETURNEDMASK,
                  _getAvatarParent());
-    _paintPixmap(_m_readyIcon, _m_layout->m_readyIconRegion, QSanRoomSkin::S_SKIN_KEY_READY_ICON,
-                 _getAvatarParent());
     _paintPixmap(_m_chainIcon, _m_layout->m_chainedIconRegion, QSanRoomSkin::S_SKIN_KEY_CHAIN,
                  _getAvatarParent());
     _paintPixmap(_m_saveMeIcon, _m_layout->m_saveMeIconRegion, QSanRoomSkin::S_SKIN_KEY_SAVE_ME_ICON,
                  _getAvatarParent());
     _paintPixmap(_m_actionIcon, _m_layout->m_actionedIconRegion, QSanRoomSkin::S_SKIN_KEY_ACTIONED_ICON,
-                 _getAvatarParent());
-    _paintPixmap(_m_handCardBg, _m_layout->m_handCardArea, QSanRoomSkin::S_SKIN_KEY_HANDCARDNUM,
                  _getAvatarParent());
     if (_m_roleComboBox != NULL)
         _m_roleComboBox->setPos(_m_layout->m_roleComboBoxPos); 
@@ -458,7 +463,6 @@ void PlayerCardContainer::setPlayer(ClientPlayer *player) {
         connect(player, SIGNAL(general_changed()), this, SLOT(updateAvatar()));
         connect(player, SIGNAL(general2_changed()), this, SLOT(updateSmallAvatar()));
         connect(player, SIGNAL(kingdom_changed()), this, SLOT(updateAvatar()));
-        connect(player, SIGNAL(ready_changed(bool)), this, SLOT(updateReadyItem(bool)));
         connect(player, SIGNAL(state_changed()), this, SLOT(refresh()));
         connect(player, SIGNAL(phase_changed()), this, SLOT(updatePhase()));
         connect(player, SIGNAL(drank_changed()), this, SLOT(updateDrankState()));
@@ -710,7 +714,7 @@ PlayerCardContainer::PlayerCardContainer() {
     _m_chainIcon = _m_faceTurnedIcon = NULL;
     _m_handCardBg = _m_handCardNumText = NULL;
     _m_kingdomColorMaskIcon = _m_deathIcon = NULL;
-    _m_readyIcon = _m_actionIcon = NULL;
+    _m_actionIcon = NULL;
     _m_kingdomIcon = NULL;
     _m_saveMeIcon = NULL;
     _m_phaseIcon = NULL;
@@ -794,7 +798,6 @@ void PlayerCardContainer::_adjustComponentZValues() {
     _layUnder(_m_hpBox);
     _layUnder(_m_handCardNumText);
     _layUnder(_m_handCardBg);
-    _layUnder(_m_readyIcon);
     _layUnder(_m_actionIcon);
     _layUnder(_m_saveMeIcon);
     _layUnder(_m_phaseIcon);
@@ -965,12 +968,16 @@ void PlayerCardContainer::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
             setSelected(false);
         else if (event->button() == Qt::LeftButton) {
             _m_votesGot++;
-            if (_m_votesGot > _m_maxVotes) setSelected(false);
-            else setSelected(true);
+            setSelected(_m_votesGot <= _m_maxVotes);
             if (_m_votesGot > 1) emit selected_changed();
         }
         updateVotes();
     }
+}
+
+void PlayerCardContainer::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
+    if (Config.EnableDoubleClick)
+        RoomSceneInstance->doOkButton();
 }
 
 QVariant PlayerCardContainer::itemChange(GraphicsItemChange change, const QVariant &value) {

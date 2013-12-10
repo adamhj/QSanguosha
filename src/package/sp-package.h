@@ -5,11 +5,38 @@
 #include "card.h"
 #include "standard.h"
 
+#include <QGroupBox>
+#include <QAbstractButton>
+#include <QButtonGroup>
+#include <QDialog>
+#include <QVBoxLayout>
+
 class SPPackage: public Package {
     Q_OBJECT
 
 public:
     SPPackage();
+};
+
+class OLPackage: public Package {
+    Q_OBJECT
+
+public:
+    OLPackage();
+};
+
+class TaiwanSPPackage: public Package {
+    Q_OBJECT
+
+public:
+    TaiwanSPPackage();
+};
+
+class WangZheZhiZhanPackage: public Package {
+    Q_OBJECT
+
+public:
+    WangZheZhiZhanPackage();
 };
 
 class Yongsi: public TriggerSkill {
@@ -23,13 +50,25 @@ protected:
     virtual int getKingdoms(ServerPlayer *yuanshu) const;
 };
 
-class WeidiCard: public SkillCard {
+class WeidiDialog: public QDialog {
     Q_OBJECT
 
 public:
-    Q_INVOKABLE WeidiCard();
+    static WeidiDialog *getInstance();
 
-    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+public slots:
+    void popup();
+    void selectSkill(QAbstractButton *button);
+
+private:
+    explicit WeidiDialog();
+
+    QAbstractButton *createSkillButton(const QString &skill_name);
+    QButtonGroup *group;
+    QVBoxLayout *button_layout;
+
+signals:
+    void onButtonClick();
 };
 
 class YuanhuCard: public SkillCard {
@@ -95,6 +134,26 @@ public:
 
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
+class QingyiCard: public SkillCard {
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE QingyiCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
+};
+
+class ZhoufuCard: public SkillCard {
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE ZhoufuCard();
+
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
 };
 
 class SPCardPackage: public Package {

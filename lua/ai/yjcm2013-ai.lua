@@ -1,5 +1,5 @@
 sgs.ai_skill_invoke.chengxiang = function(self, data)
-	return not (self.player:hasSkill("manjuan") and self.player:getPhase() == sgs.Player_NotActive)
+	return not hasManjuanEffect(self.player)
 end
 
 sgs.ai_skill_askforag.chengxiang = function(self, card_ids)
@@ -10,7 +10,7 @@ function sgs.ai_cardsview_valuable.renxin(self, class_name, player)
 	if class_name == "Peach" and not player:isKongcheng() then
 		local dying = player:getRoom():getCurrentDyingPlayer()
 		if not dying or self:isEnemy(dying, player) or dying:objectName() == player:objectName() then return nil end
-		if dying:hasSkill("manjuan") and dying:getPhase() == sgs.Player_NotActive then
+		if hasManjuanEffect(dying) then
 			local peach_num = 0
 			if not player:hasFlag("Global_PreventPeach") then
 				for _, c in sgs.qlist(player:getCards("he")) do
@@ -459,7 +459,7 @@ sgs.ai_skill_cardask["@longyin"] = function(self, data)
 				end
 			end
 			if offhorse_avail and not self.player:isJilei(self.player:getOffensiveHorse()) then return "$" .. self.player:getOffensiveHorse():getEffectiveId() end
-			if isRed and slashc then return "$" .. slash:getEffectiveId() end
+			if isRed and slashc then return "$" .. slashc:getEffectiveId() end
 		end
 	end
 	local use = data:toCardUse()
@@ -467,7 +467,7 @@ sgs.ai_skill_cardask["@longyin"] = function(self, data)
 	local slash_num = 0
 	if use.from:objectName() == self.player:objectName() then slash_num = self:getCardsNum("Slash") else slash_num = getCardsNum("Slash", use.from) end
 	if self:isEnemy(use.from) and use.m_addHistory and not self:hasCrossbowEffect(use.from) and slash_num > 0 then return "." end
-	if (slash:isRed() and not (self.player:hasSkill("manjuan") and self.player:getPhase() == sgs.Player_NotActive))
+	if (slash:isRed() and not hasManjuanEffect(self.player))
 		or (use.m_reason == sgs.CardUseStruct_CARD_USE_REASON_PLAY and use.m_addHistory and self:isFriend(use.from) and slash_num >= 1) then
 		local str = getLeastValueCard(slash:isRed())
 		if str then return str end
@@ -589,7 +589,7 @@ sgs.ai_skill_choice.qiaoshui = function(self, choices, data)
 	elseif use.card:isKindOf("AmazingGrace") then
 		self:sort(self.enemies)
 		for _, enemy in ipairs(self.enemies) do
-			if self:hasTrickEffective(use.card, enemy, self.player) and not (enemy:hasSkill("manjuan") and enemy:getPhase() == sgs.Player_NotActive)
+			if self:hasTrickEffective(use.card, enemy, self.player) and not hasManjuanEffect(enemy)
 				and not self:needKongcheng(enemy, true) then
 				self.qiaoshui_remove_target = enemy
 				return "remove"
@@ -723,7 +723,7 @@ sgs.ai_skill_cardask["@duodao-get"] = function(self, data)
 					if self:isWeak(friend) then return "." end
 				end
 			else
-				if self.player:hasSkill("manjuan") and self.player:getPhase() == sgs.Player_NotActive then
+				if hasManjuanEffect(self.player) then
 					if self:needToThrowArmor() and not self.player:isJilei(self.player:getArmor()) then
 						return "$" .. self.player:getArmor():getEffectiveId()
 					elseif self.player:getHandcardNum() == 1
@@ -747,7 +747,9 @@ sgs.ai_skill_invoke.danshou = function(self, data)
 	if phase < sgs.Player_Play then
 		return self:willSkipPlayPhase()
 	elseif phase == sgs.Player_Play then
-		if self:getOverflow() >= 2 then
+		if self.player:isChained() and (damage.chain or self.room:getTag("is_chained"):toInt() > 0) and self:isGoodChainTarget(self.player) then
+			return false
+		elseif self:getOverflow() >= 2 then
 			return true
 		else
 			if damage.chain or self.room:getTag("is_chained"):toInt() > 0 then
@@ -758,7 +760,7 @@ sgs.ai_skill_invoke.danshou = function(self, data)
 						break
 					end
 				end
-				if not nextp or self:isFriend(nextp) then return true else return false end
+				return not nextp or self:isFriend(nextp)
 			end
 			if damage.card and damage.card:isKindOf("Slash") and self:getCardsNum("Slash") >= 1 and self:slashIsAvailable() then
 				return false
@@ -773,7 +775,7 @@ sgs.ai_skill_invoke.danshou = function(self, data)
 							if self:isFriend(p) then
 								dmg_val = dmg_val + 1
 							else
-								if self:cantbeHurt(p, damage.damage, self.player) then dmg_val = dmg_val + 1 end
+								if self:cantbeHurt(p, self.player, damage.damage) then dmg_val = dmg_val + 1 end
 								if self:getDamagedEffects(p, self.player) then dmg_val = dmg_val + 0.5 end
 								if self:isEnemy(p) then dmg_val = dmg_val - 1 end
 							end
@@ -790,7 +792,7 @@ sgs.ai_skill_invoke.danshou = function(self, data)
 		return true
 	elseif phase == sgs.Player_NotActive then
 		local current = self.room:getCurrent()
-		if not current or not current:isAlive() or current:getPhase() == sgs.Player_NotActive() then return true end
+		if not current or not current:isAlive() or current:getPhase() == sgs.Player_NotActive then return true end
 		if self:isFriend(current) then
 			return self:getOverflow(current) >= 2
 		else
@@ -850,20 +852,20 @@ sgs.ai_skill_playerchosen.zhiyan = function(self, targets)
 			end
 		else
 			local cards = { card }
-			local player = self:getCardNeedPlayer(cards)
+			local card, player = self:getCardNeedPlayer(cards)
 			if player then
 				return player
 			else
 				self:sort(self.friends)
 				for _, friend in ipairs(self.friends) do
-					if not self:needKongcheng(friend, true) and not (friend:hasSkill("manjuan") and friend:getPhase() == sgs.Player_NotActive) then return friend end
+					if not self:needKongcheng(friend, true) and not hasManjuanEffect(friend) then return friend end
 				end
 			end
 		end
 	else
 		self:sort(self.friends)
 		for _, friend in ipairs(self.friends) do
-			if not self:needKongcheng(friend, true) and not (friend:hasSkill("manjuan") and friend:getPhase() == sgs.Player_NotActive) then return friend end
+			if not self:needKongcheng(friend, true) and not hasManjuanEffect(friend) then return friend end
 		end
 	end
 	return nil
@@ -875,7 +877,7 @@ sgs.ai_skill_invoke.juece = function(self, data)
 	local move = data:toMoveOneTime()
 	if not move.from then return false end
 	local from = findPlayerByObjectName(self.room, move.from:objectName())
-	return from and self:canAttack(from)
+	return from and ((self:isFriend(from) and self:getDamagedEffects(from, self.player)) or self:canAttack(from))
 end
 
 sgs.ai_skill_playerchosen.mieji = function(self, targets) -- extra target for Ex Nihilo
@@ -992,7 +994,7 @@ sgs.ai_skill_discard.fencheng = function(self, discard_num, min_num, optional, i
 				if self:isWeak() then table.insert(to_discard, def_id)
 				else return {} end
 			elseif self.player:getArmor() and not table.contains(to_discard, arm_id) then
-				if self:isWeak() then table.insert(to_discard, arm_id)
+				if self:isWeak() or (not liru:hasSkill("jueqing") and self.player:hasArmorEffect("Vine")) then table.insert(to_discard, arm_id)
 				else return {} end
 			end
 			if #to_discard == discard_num + 1 then table.removeOne(to_discard, cards[1]:getEffectiveId()) end
@@ -1030,14 +1032,15 @@ sgs.ai_skill_playerchosen.qiuyuan = function(self, targets)
 	for _, p in ipairs(targetlist) do
 		if self:isEnemy(p) and not (p:getHandcardNum() == 1 and (p:hasSkill("kongcheng") or (p:hasSkill("zhiji") and p:getMark("zhiji") == 0))) then
 			if p:hasSkills(sgs.cardneed_skill) then return p
-			elseif not enemy and not enemy:canLiuli(enemy, self.friends_noself) then enemy = p end
+			elseif not enemy and not self:canLiuli(p, self.friends_noself) then enemy = p end
 		end
 	end
+	if enemy then return enemy end
 	targetlist = sgs.reverse(targetlist)
 	local friend
 	for _, p in ipairs(targetlist) do
 		if self:isFriend(p) then
-			if (p:hasSkill("kongcheng") and p:getHandcardNum() == 1) or (p:getCardCount(true) >= 2 and self:canLiuli(p, self.enemies)) then return p
+			if (p:hasSkill("kongcheng") and p:getHandcardNum() == 1) or (p:getCardCount() >= 2 and self:canLiuli(p, self.enemies)) then return p
 			elseif not friend and getCardsNum("Jink", p) >= 1 then friend = p end
 		end
 	end
@@ -1060,7 +1063,7 @@ sgs.ai_skill_cardask["@qiuyuan-give"] = function(self, data, pattern, target)
 	return "$" .. cards[1]:getEffectiveId()
 end
 
-function sgs.ai_slash_prohibit.qiuyuan(self, to, card, from)
+function sgs.ai_slash_prohibit.qiuyuan(self, from, to)
 	if self:isFriend(to, from) then return false end
 	if from:hasFlag("NosJiefanUsed") then return false end
 	for _, friend in ipairs(self:getFriendsNoself(from)) do

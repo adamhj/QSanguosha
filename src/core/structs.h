@@ -6,7 +6,6 @@ class TriggerSkill;
 class ServerPlayer;
 class Card;
 class Slash;
-class GameRule;
 
 #include "player.h"
 
@@ -187,6 +186,7 @@ struct CardsMoveOneTimeStruct {
     QString to_pile_name;
 
     QList<bool> open; // helper to prevent sending card_id to unrelevant clients
+    bool is_last_handcard;
 };
 
 struct CardsMoveStruct {
@@ -195,15 +195,20 @@ struct CardsMoveStruct {
         to_place = Player::PlaceUnknown;
         from = NULL;
         to = NULL;
+        is_last_handcard = false;
     }
 
-    inline CardsMoveStruct(const QList<int> &ids, Player *from, Player *to, Player::Place to_place, CardMoveReason reason) {
+    inline CardsMoveStruct(const QList<int> &ids, Player *from, Player *to, Player::Place from_place,
+                           Player::Place to_place, CardMoveReason reason) {
         this->card_ids = ids;
-        this->from_place = Player::PlaceUnknown;
+        this->from_place = from_place;
         this->to_place = to_place;
         this->from = from;
         this->to = to;
         this->reason = reason;
+        this->is_last_handcard = false;
+        if (from) this->from_player_name = from->objectName();
+        if (to) this->to_player_name = to->objectName();
     }
 
     inline CardsMoveStruct(const QList<int> &ids, Player *to, Player::Place to_place, CardMoveReason reason) {
@@ -213,22 +218,39 @@ struct CardsMoveStruct {
         this->from = NULL;
         this->to = to;
         this->reason = reason;
+        this->is_last_handcard = false;
+        if (to) this->to_player_name = to->objectName();
     }
 
-    inline bool hasSameSourceAs(const CardsMoveStruct &move) {
-        return from == move.from && from_place == move.from_place
-               && from_player_name == move.from_player_name && from_pile_name == move.from_pile_name;
+    inline CardsMoveStruct(int id, Player *from, Player *to, Player::Place from_place,
+                           Player::Place to_place, CardMoveReason reason) {
+        this->card_ids << id;
+        this->from_place = from_place;
+        this->to_place = to_place;
+        this->from = from;
+        this->to = to;
+        this->reason = reason;
+        this->is_last_handcard = false;
+        if (from) this->from_player_name = from->objectName();
+        if (to) this->to_player_name = to->objectName();
     }
 
-    inline bool hasSameDestinationAs(const CardsMoveStruct &move) {
-        return to == move.to && to_place == move.to_place
-               && to_player_name == move.to_player_name && to_pile_name == move.to_pile_name;
+    inline CardsMoveStruct(int id, Player *to, Player::Place to_place, CardMoveReason reason) {
+        this->card_ids << id;
+        this->from_place = Player::PlaceUnknown;
+        this->to_place = to_place;
+        this->from = NULL;
+        this->to = to;
+        this->reason = reason;
+        this->is_last_handcard = false;
+        if (to) this->to_player_name = to->objectName();
     }
 
     inline bool operator == (const CardsMoveStruct &other) const{
         return from == other.from && from_place == other.from_place
                && from_pile_name == other.from_pile_name && from_player_name == other.from_player_name;
     }
+
     inline bool operator < (const CardsMoveStruct &other) const{
         return from < other.from || from_place < other.from_place
                || from_pile_name < other.from_pile_name || from_player_name < other.from_player_name;
@@ -241,6 +263,7 @@ struct CardsMoveStruct {
     Player *from, *to;
     CardMoveReason reason;
     bool open; // helper to prevent sending card_id to unrelevant clients
+    bool is_last_handcard;
     bool tryParse(const Json::Value &);
     Json::Value toJsonValue() const;
     inline bool isRelevant(const Player *player) {
@@ -371,9 +394,12 @@ enum TriggerEvent {
     EventPhaseProceeding,
     EventPhaseEnd,
     EventPhaseChanging,
+    EventPhaseSkipping,
 
     DrawNCards,
     AfterDrawNCards,
+    DrawInitialCards,
+    AfterDrawInitialCards,
 
     PreHpRecover,
     HpRecover,

@@ -216,17 +216,17 @@ QWidget *ServerDialog::createAdvancedTab() {
     sp_convert_checkbox->setChecked(Config.value("EnableSPConvert", true).toBool());
 
     maxchoice_spinbox = new QSpinBox;
-    maxchoice_spinbox->setRange(3, 10);
+    maxchoice_spinbox->setRange(3, 21);
     maxchoice_spinbox->setValue(Config.value("MaxChoice", 5).toInt());
 
     lord_maxchoice_label = new QLabel(tr("Upperlimit for lord"));
     lord_maxchoice_label->setToolTip(tr("-1 means that all lords are available"));
     lord_maxchoice_spinbox = new QSpinBox;
-    lord_maxchoice_spinbox->setRange(-1, 10);
+    lord_maxchoice_spinbox->setRange(-1, 15);
     lord_maxchoice_spinbox->setValue(Config.value("LordMaxChoice", -1).toInt());
 
     nonlord_maxchoice_spinbox = new QSpinBox;
-    nonlord_maxchoice_spinbox->setRange(0, 10);
+    nonlord_maxchoice_spinbox->setRange(0, 15);
     nonlord_maxchoice_spinbox->setValue(Config.value("NonLordMaxChoice", 2).toInt());
 
     forbid_same_ip_checkbox = new QCheckBox(tr("Forbid same IP with multiple connection"));
@@ -278,7 +278,7 @@ QWidget *ServerDialog::createAdvancedTab() {
 
     hegemony_maxchoice_label = new QLabel(tr("Upperlimit for hegemony"));
     hegemony_maxchoice_spinbox = new QSpinBox;
-    hegemony_maxchoice_spinbox->setRange(5, 10);
+    hegemony_maxchoice_spinbox->setRange(5, 21);
     hegemony_maxchoice_spinbox->setValue(Config.value("HegemonyMaxChoice", 7).toInt());
 
     hegemony_maxshown_label = new QLabel(tr("Max shown num for hegemony"));
@@ -369,6 +369,12 @@ QWidget *ServerDialog::createMiscTab() {
     minimize_dialog_checkbox = new QCheckBox(tr("Minimize the dialog when server runs"));
     minimize_dialog_checkbox->setChecked(Config.EnableMinimizeDialog);
 
+    surrender_at_death_checkbox = new QCheckBox(tr("Surrender at the time of Death"));
+    surrender_at_death_checkbox->setChecked(Config.SurrenderAtDeath);
+
+    luck_card_checkbox = new QCheckBox(tr("Enable the luck card"));
+    luck_card_checkbox->setChecked(Config.EnableLuckCard);
+
     QGroupBox *ai_groupbox = new QGroupBox(tr("Artificial intelligence"));
     ai_groupbox->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
@@ -377,12 +383,6 @@ QWidget *ServerDialog::createMiscTab() {
     ai_enable_checkbox = new QCheckBox(tr("Enable AI"));
     ai_enable_checkbox->setChecked(Config.EnableAI);
     ai_enable_checkbox->setEnabled(false); // Force to enable AI for disabling it causes crashes!!
-
-    role_predictable_checkbox = new QCheckBox(tr("Role predictable"));
-    role_predictable_checkbox->setChecked(Config.value("RolePredictable", false).toBool());
-
-    ai_chat_checkbox = new QCheckBox(tr("AI Chat"));
-    ai_chat_checkbox->setChecked(Config.value("AIChat", true).toBool());
 
     ai_delay_spinbox = new QSpinBox;
     ai_delay_spinbox->setMinimum(0);
@@ -401,16 +401,10 @@ QWidget *ServerDialog::createMiscTab() {
     ai_delay_ad_spinbox->setEnabled(ai_delay_altered_checkbox->isChecked());
     connect(ai_delay_altered_checkbox, SIGNAL(toggled(bool)), ai_delay_ad_spinbox, SLOT(setEnabled(bool)));
 
-    surrender_at_death_checkbox = new QCheckBox(tr("Surrender at the time of Death"));
-    surrender_at_death_checkbox->setChecked(Config.SurrenderAtDeath);
-
     layout->addWidget(ai_enable_checkbox);
-    layout->addWidget(role_predictable_checkbox);
-    layout->addWidget(ai_chat_checkbox);
     layout->addLayout(HLay(new QLabel(tr("AI delay")), ai_delay_spinbox));
     layout->addWidget(ai_delay_altered_checkbox);
     layout->addLayout(HLay(new QLabel(tr("AI delay After Death")), ai_delay_ad_spinbox));
-    layout->addWidget(surrender_at_death_checkbox);
 
     ai_groupbox->setLayout(layout);
 
@@ -418,6 +412,8 @@ QWidget *ServerDialog::createMiscTab() {
     tablayout->addLayout(HLay(new QLabel(tr("Game start count down")), game_start_spinbox));
     tablayout->addLayout(HLay(new QLabel(tr("Nullification count down")), nullification_spinbox));
     tablayout->addWidget(minimize_dialog_checkbox);
+    tablayout->addWidget(surrender_at_death_checkbox);
+    tablayout->addWidget(luck_card_checkbox);
     tablayout->addWidget(ai_groupbox);
     tablayout->addStretch();
 
@@ -544,27 +540,40 @@ BanlistDialog::BanlistDialog(QWidget *parent, bool view)
 
 void BanlistDialog::addGeneral(const QString &name) {
     if (list->objectName() == "Pairs") {
+        if (banned_items["Pairs"].contains(name)) return;
+        banned_items["Pairs"].append(name);
         QString text = QString(tr("Banned for all: %1")).arg(Sanguosha->translate(name));
         QListWidgetItem *item = new QListWidgetItem(text);
         item->setData(Qt::UserRole, QVariant::fromValue(name));
         list->addItem(item);
     } else {
-        QIcon icon(G_ROOM_SKIN.getGeneralPixmap(name, QSanRoomSkin::S_GENERAL_ICON_SIZE_TINY));
-        QString text = Sanguosha->translate(name);
-        QListWidgetItem *item = new QListWidgetItem(icon, text, list);
-        item->setSizeHint(QSize(60, 60));
-        item->setData(Qt::UserRole, name);
+        foreach (QString general_name, name.split("+")) {
+            if (banned_items[list->objectName()].contains(general_name)) continue;
+            banned_items[list->objectName()].append(general_name);
+            QIcon icon(G_ROOM_SKIN.getGeneralPixmap(general_name, QSanRoomSkin::S_GENERAL_ICON_SIZE_TINY));
+            QString text = Sanguosha->translate(general_name);
+            QListWidgetItem *item = new QListWidgetItem(icon, text, list);
+            item->setSizeHint(QSize(60, 60));
+            item->setData(Qt::UserRole, general_name);
+        }
     }
 }
 
 void BanlistDialog::add2ndGeneral(const QString &name) {
-    QString text = QString(tr("Banned for second general: %1")).arg(Sanguosha->translate(name));
-    QListWidgetItem *item = new QListWidgetItem(text);
-    item->setData(Qt::UserRole, QVariant::fromValue(QString("+%1").arg(name)));
-    list->addItem(item);
+    foreach (QString general_name, name.split("+")) {
+        if (banned_items["Pairs"].contains("+" + general_name)) continue;
+        banned_items["Pairs"].append("+" + general_name);
+        QString text = QString(tr("Banned for second general: %1")).arg(Sanguosha->translate(general_name));
+        QListWidgetItem *item = new QListWidgetItem(text);
+        item->setData(Qt::UserRole, QVariant::fromValue(QString("+%1").arg(general_name)));
+        list->addItem(item);
+    }
 }
 
 void BanlistDialog::addPair(const QString &first, const QString &second) {
+    if (banned_items["Pairs"].contains(QString("%1+%2").arg(first, second))
+        || banned_items["Pairs"].contains(QString("%1+%2").arg(second, first))) return;
+    banned_items["Pairs"].append(QString("%1+%2").arg(first, second));
     QString trfirst = Sanguosha->translate(first);
     QString trsecond = Sanguosha->translate(second);
     QListWidgetItem *item = new QListWidgetItem(QString("%1 + %2").arg(trfirst, trsecond));
@@ -573,14 +582,15 @@ void BanlistDialog::addPair(const QString &first, const QString &second) {
 }
 
 void BanlistDialog::doAddButton() {
-    FreeChooseDialog *chooser = new FreeChooseDialog(this, (list->objectName() == "Pairs"));
+    FreeChooseDialog *chooser = new FreeChooseDialog(this,
+                                                     (list->objectName() == "Pairs") ? FreeChooseDialog::Pair : FreeChooseDialog::Multi);
     connect(chooser, SIGNAL(general_chosen(QString)), this, SLOT(addGeneral(QString)));
     connect(chooser, SIGNAL(pair_chosen(QString, QString)), this, SLOT(addPair(QString, QString)));
     chooser->exec();
 }
 
 void BanlistDialog::doAdd2ndButton() {
-    FreeChooseDialog *chooser = new FreeChooseDialog(this, false);
+    FreeChooseDialog *chooser = new FreeChooseDialog(this, FreeChooseDialog::Multi);
     connect(chooser, SIGNAL(general_chosen(QString)), this, SLOT(add2ndGeneral(QString)));
     chooser->exec();
 }
@@ -624,12 +634,15 @@ QGroupBox *ServerDialog::create1v1Box() {
     QComboBox *officialComboBox = new QComboBox;
     officialComboBox->addItem(tr("Classical"), "Classical");
     officialComboBox->addItem("2013", "2013");
+    officialComboBox->addItem("OL", "OL");
 
     official_1v1_ComboBox = officialComboBox;
 
-    QString rule = Config.value("1v1/Rule", "Classical").toString();
+    QString rule = Config.value("1v1/Rule", "2013").toString();
     if (rule == "2013")
         officialComboBox->setCurrentIndex(1);
+    else if (rule == "OL")
+        officialComboBox->setCurrentIndex(2);
 
     kof_using_extension_checkbox = new QCheckBox(tr("General extensions"));
     kof_using_extension_checkbox->setChecked(Config.value("1v1/UsingExtension", false).toBool());
@@ -667,7 +680,7 @@ QGroupBox *ServerDialog::create3v3Box() {
 
     official_3v3_ComboBox = officialComboBox;
 
-    QString rule = Config.value("3v3/OfficialRule", "2012").toString();
+    QString rule = Config.value("3v3/OfficialRule", "2013").toString();
     if (rule == "2012")
         officialComboBox->setCurrentIndex(1);
     else if (rule == "2013")
@@ -940,7 +953,7 @@ void Select3v3GeneralDialog::fillTabWidget() {
 void Select3v3GeneralDialog::fillListWidget(QListWidget *list, const Package *pack) {
     QList<const General *> generals = pack->findChildren<const General *>();
     foreach (const General *general, generals) {
-        if (general->isHidden()) continue;
+        if (Sanguosha->isGeneralHidden(general->objectName())) continue;
 
         QListWidgetItem *item = new QListWidgetItem(list);
         item->setData(Qt::UserRole, general->objectName());
@@ -1054,6 +1067,8 @@ bool ServerDialog::config() {
     Config.AlterAIDelayAD = ai_delay_altered_checkbox->isChecked();
     Config.ServerPort = port_edit->text().toInt();
     Config.DisableLua = disable_lua_checkbox->isChecked();
+    Config.SurrenderAtDeath = surrender_at_death_checkbox->isChecked();
+    Config.EnableLuckCard = luck_card_checkbox->isChecked();
 
     // game mode
     QString objname = mode_group->checkedButton()->objectName();
@@ -1098,12 +1113,11 @@ bool ServerDialog::config() {
     Config.setValue("NullificationCountDown", nullification_spinbox->value());
     Config.setValue("EnableMinimizeDialog", Config.EnableMinimizeDialog);
     Config.setValue("EnableAI", Config.EnableAI);
-    Config.setValue("RolePredictable", role_predictable_checkbox->isChecked());
-    Config.setValue("AIChat", ai_chat_checkbox->isChecked());
     Config.setValue("OriginAIDelay", Config.OriginAIDelay);
     Config.setValue("AlterAIDelayAD", ai_delay_altered_checkbox->isChecked());
     Config.setValue("AIDelayAD", Config.AIDelayAD);
-    Config.setValue("SurrenderAtDeath", surrender_at_death_checkbox->isChecked());
+    Config.setValue("SurrenderAtDeath", Config.SurrenderAtDeath);
+    Config.setValue("EnableLuckCard", Config.EnableLuckCard);
     Config.setValue("ServerPort", Config.ServerPort);
     Config.setValue("Address", Config.Address);
     Config.setValue("DisableLua", disable_lua_checkbox->isChecked());

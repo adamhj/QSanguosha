@@ -35,6 +35,15 @@ public:
     virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
+class PujiCard: public SkillCard {
+    Q_OBJECT
+
+public:
+    Q_INVOKABLE PujiCard();
+    virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
+};
+
 class Drowning: public SingleTargetTrick {
     Q_OBJECT
 
@@ -50,6 +59,20 @@ class Special1v1Package: public Package {
 
 public:
     Special1v1Package();
+};
+
+class Special1v1OLPackage: public Package {
+    Q_OBJECT
+
+public:
+    Special1v1OLPackage();
+};
+
+class Special1v1ExtPackage: public Package {
+    Q_OBJECT
+
+public:
+    Special1v1ExtPackage();
 };
 
 class New1v1CardPackage: public Package {

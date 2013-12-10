@@ -41,12 +41,14 @@ void OptionButton::mouseDoubleClickEvent(QMouseEvent *) {
     emit double_clicked();
 }
 
-ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidget *parent)
+ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidget *parent, bool view_only, const QString &title)
     : QDialog(parent)
 {
     m_freeChooseDialog = NULL;
-
-    setWindowTitle(tr("Choose general"));
+    if (title.isEmpty())
+        setWindowTitle(tr("Choose general"));
+    else
+        setWindowTitle(title);
 
     QString lord_name;
 
@@ -92,12 +94,14 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
         button->setToolTip(general->getSkillDescription(true));
         buttons << button;
 
-        mapper->setMapping(button, general->objectName());
-        connect(button, SIGNAL(double_clicked()), mapper, SLOT(map()));
-        connect(button, SIGNAL(double_clicked()), this, SLOT(accept()));
+        if (!view_only) {
+            mapper->setMapping(button, general->objectName());
+            connect(button, SIGNAL(double_clicked()), mapper, SLOT(map()));
+            connect(button, SIGNAL(double_clicked()), this, SLOT(accept()));
+        }
     }
 
-    if (ServerInfo.EnableHegemony && ServerInfo.Enable2ndGeneral && generals.length() > 2) {
+    if (!view_only && ServerInfo.EnableHegemony && ServerInfo.Enable2ndGeneral && generals.length() > 2) {
         int index = 0;
         foreach (const General *general, generals) {
             int party = 0;
@@ -165,15 +169,17 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
         }
     }
 
-    mapper->setMapping(this, default_name);
-    connect(this, SIGNAL(rejected()), mapper, SLOT(map()));
+    if (!view_only) {
+        mapper->setMapping(this, default_name);
+        connect(this, SIGNAL(rejected()), mapper, SLOT(map()));
 
-    connect(mapper, SIGNAL(mapped(QString)), ClientInstance, SLOT(onPlayerChooseGeneral(QString)));
+        connect(mapper, SIGNAL(mapped(QString)), ClientInstance, SLOT(onPlayerChooseGeneral(QString)));
+    }
 
     QVBoxLayout *dialog_layout = new QVBoxLayout;
     dialog_layout->addLayout(layout);
 
-    if (!ServerInfo.EnableHegemony) {
+    if (!view_only && !ServerInfo.EnableHegemony) {
         // role prompt
         QLabel *role_label = new QLabel(tr("Your role is %1").arg(Sanguosha->translate(Self->getRole())));
         if (lord_name.size()) role_label->setText(tr("The lord has chosen %1. Your seat is %2. %3")
@@ -187,7 +193,7 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
 
     // progress bar & free choose button
     QHBoxLayout *last_layout = new QHBoxLayout;
-    if (ServerInfo.OperationTimeout == 0) {
+    if (view_only || ServerInfo.OperationTimeout == 0) {
         progress_bar = NULL;
     } else {
         progress_bar = new QSanCommandProgressBar();
@@ -201,7 +207,7 @@ ChooseGeneralDialog::ChooseGeneralDialog(const QStringList &general_names, QWidg
     bool free_choose = ServerInfo.FreeChoose
                        || ServerInfo.GameMode.startsWith("_mini_") || ServerInfo.GameMode == "custom_scenario";
 
-    if (free_choose) {
+    if (!view_only && free_choose) {
         QPushButton *free_choose_button = new QPushButton(tr("Free choose ..."));
         connect(free_choose_button, SIGNAL(clicked()), this, SLOT(freeChoose()));
         last_layout->addWidget(free_choose_button);
@@ -236,15 +242,15 @@ void ChooseGeneralDialog::freeChoose() {
     dialog->exec();
 }
 
-FreeChooseDialog::FreeChooseDialog(QWidget *parent, bool pair_choose)
-    : QDialog(parent), pair_choose(pair_choose)
+FreeChooseDialog::FreeChooseDialog(QWidget *parent, ButtonGroupType type)
+    : QDialog(parent), type(type)
 {
     setWindowTitle(tr("Free choose generals"));
 
     QTabWidget *tab_widget = new QTabWidget;
 
     group = new QButtonGroup(this);
-    group->setExclusive(!pair_choose);
+    group->setExclusive(type == Exclusive);
 
     QList<const General *> all_generals = Sanguosha->findChildren<const General *>();
     QMap<QString, QList<const General *> > map;
@@ -285,12 +291,12 @@ FreeChooseDialog::FreeChooseDialog(QWidget *parent, bool pair_choose)
 
     setLayout(layout);
 
-    if (!pair_choose)
+    if (type == Exclusive)
         group->buttons().first()->click();
 }
 
 void FreeChooseDialog::chooseGeneral() {
-    if (pair_choose) {
+    if (type == Pair) {
         QList<QAbstractButton *> buttons = group->buttons();
         QString first, second;
         foreach (QAbstractButton *button, buttons) {
@@ -306,6 +312,13 @@ void FreeChooseDialog::chooseGeneral() {
             }
         }
         if (second.isEmpty()) emit general_chosen(first);
+    } else if (type == Multi) {
+        QStringList general_names;
+        foreach (QAbstractButton *button, group->buttons()) {
+            if (button->isChecked())
+                general_names << button->objectName();
+        }
+        if (!general_names.isEmpty()) emit general_chosen(general_names.join("+"));
     } else {
         QAbstractButton *button = group->checkedButton();
         if (button) emit general_chosen(button->objectName());
@@ -331,10 +344,10 @@ QWidget *FreeChooseDialog::createTab(const QList<const General *> &generals) {
                                .arg(Sanguosha->translate(general->getPackage()));
 
         QAbstractButton *button;
-        if (pair_choose)
-            button = new QCheckBox(text);
-        else
+        if (type == Exclusive)
             button = new QRadioButton(text);
+        else
+            button = new QCheckBox(text);
         button->setObjectName(general_name);
         button->setToolTip(general->getSkillDescription(true));
         if (general->isLord())
@@ -356,7 +369,7 @@ QWidget *FreeChooseDialog::createTab(const QList<const General *> &generals) {
 
     tab->setLayout(tablayout);
 
-    if (pair_choose) {
+    if (type == Pair) {
         connect(group, SIGNAL(buttonClicked(QAbstractButton *)),
                 this, SLOT(uncheckExtraButton(QAbstractButton *)));
     }

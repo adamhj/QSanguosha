@@ -30,7 +30,7 @@ return {
 	["dingfeng"] = "丁奉",
 	["illustrator:dingfeng"] = "魔鬼鱼",
 	["duanbing"] = "短兵",
-	[":duanbing"] = "<font color=\"blue\"><b>锁定技，</b></font>你使用【杀】可以额外选择一名距离1的目标。",
+	[":duanbing"] = "你使用【杀】可以额外选择一名距离1的目标。",
 	["fenxun"] = "奋迅",
 	[":fenxun"] = "<font color=\"green\"><b>出牌阶段限一次，</b></font>你可以弃置一张牌并选择一名其他角色，你获得以下锁定技：本回合你无视与该角色的距离。",
 
@@ -51,6 +51,7 @@ return {
 	["mingshi:no"] = "不展示",
 	["lirang"] = "礼让",
 	[":lirang"] = "当你的牌因弃置而置入弃牌堆时，你可以将其中任意数量的牌以任意分配方式交给任意数量的其他角色。",
+	["@lirang-distribute"] = "你可以发动“礼让”将 %arg 张牌任意分配给任意数量的其他角色",
 	["#Mingshi"] = "%from 的“<font color=\"yellow\"><b>名士</b></font>”被触发，伤害从 %arg 点减少至 %arg2 点",
 
 	["#jiling"] = "仲家的主将",

@@ -20,7 +20,6 @@ GameRule::GameRule(QObject *)
     events << GameStart << TurnStart
            << EventPhaseProceeding << EventPhaseEnd << EventPhaseChanging
            << PreCardUsed << CardUsed << CardFinished << CardEffected
-           << CardResponded
            << PostHpReduced
            << EventLoseSkill << EventAcquireSkill
            << AskForPeaches << AskForPeachesDone << BuryVictim << GameOverJudge
@@ -61,25 +60,21 @@ void GameRule::onPhaseProceed(ServerPlayer *player) const{
             break;
         }
     case Player::Draw: {
-            QVariant qnum;
             int num = 2;
             if (player->hasFlag("Global_FirstRound")) {
                 room->setPlayerFlag(player, "-Global_FirstRound");
                 if (room->getMode() == "02_1v1") num--;
             }
 
-            qnum.setValue(num);
-            Q_ASSERT(room->getThread() != NULL);
-            room->getThread()->trigger(DrawNCards, room, player, qnum);
-            num = qnum.toInt();
-            if (num > 0)
-                player->drawCards(num);
-            qnum.setValue(num);
-            room->getThread()->trigger(AfterDrawNCards, room, player, qnum);
+            QVariant data = num;
+            room->getThread()->trigger(DrawNCards, room, player, data);
+            int n = data.toInt();
+            if (n > 0)
+                player->drawCards(n);
+            room->getThread()->trigger(AfterDrawNCards, room, player, QVariant::fromValue(n));
             break;
         }
     case Player::Play: {
-            room->addPlayerHistory(player, ".");
             while (player->isAlive()) {
                 CardUseStruct card_use;
                 room->activate(player, card_use);
@@ -120,7 +115,6 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
     if (player == NULL) {
         if (triggerEvent == GameStart) {
             foreach (ServerPlayer *player, room->getPlayers()) {
-                Q_ASSERT(player->getGeneral() != NULL);
                 if (player->getGeneral()->getKingdom() == "god" && player->getGeneralName() != "anjiang") {
                     QString new_kingdom = room->askForKingdom(player);
                     room->setPlayerProperty(player, "kingdom", new_kingdom);
@@ -131,23 +125,28 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
                     log.arg = new_kingdom;
                     room->sendLog(log);
                 }
+                foreach (const Skill *skill, player->getVisibleSkillList()) {
+                    if (skill->getFrequency() == Skill::Limited && !skill->getLimitMark().isEmpty()
+                        && (!skill->isLordSkill() || player->hasLordSkill(skill->objectName())))
+                        room->addPlayerMark(player, skill->getLimitMark());
+                }
             }
             room->setTag("FirstRound", true);
-            if (room->getMode() == "02_1v1" && Config.value("1v1/Rule", "Classical").toString() == "2013") {
-                QList<CardsMoveStruct> moves;
-                foreach (ServerPlayer *player, room->getPlayers()) {
-                    QList<int> card_ids = room->getNCards(player->getMaxHp(), false);
-
-                    CardsMoveStruct move;
-                    move.card_ids = card_ids;
-                    move.from = NULL;
-                    move.to = player;
-                    move.to_place = Player::PlaceHand;
-                    moves.append(move);
-                }
-                room->moveCardsAtomic(moves, false);
-            } else {
-                room->drawCards(room->getPlayers(), 4, QString());
+            bool kof_mode = room->getMode() == "02_1v1" && Config.value("1v1/Rule", "2013").toString() != "Classical";
+            QList<int> n_list;
+            foreach (ServerPlayer *p, room->getPlayers()) {
+                int n = kof_mode ? p->getMaxHp() : 4;
+                QVariant data = n;
+                room->getThread()->trigger(DrawInitialCards, room, p, data);
+                n_list << data.toInt();
+            }
+            room->drawCards(room->getPlayers(), n_list, QString());
+            if (Config.EnableLuckCard)
+                room->askForLuckCard();
+            int i = 0;
+            foreach (ServerPlayer *p, room->getPlayers()) {
+                room->getThread()->trigger(AfterDrawInitialCards, room, p, QVariant::fromValue(n_list.at(i)));
+                i++;
             }
         }
         return false;
@@ -198,9 +197,9 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
             if (change.to == Player::NotActive) {
                 room->setPlayerFlag(player, ".");
                 room->clearPlayerCardLimitation(player, true);
+            } else if (change.to == Player::Play) {
+                room->addPlayerHistory(player, ".");
             }
-            if (player->hasFlag("Global_SlashInPlayPhase"))
-                player->setFlags("-Global_SlashInPlayPhase");
             break;
         }
     case PreCardUsed: {
@@ -210,8 +209,6 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
                     card_use.from->setFlags("-Global_ForbidSurrender");
                     room->doNotify(card_use.from, QSanProtocol::S_COMMAND_ENABLE_SURRENDER, Json::Value(true));
                 }
-                if (card_use.card->isKindOf("Slash"))
-                    card_use.from->setFlags("Global_SlashInPlayPhase");
 
                 card_use.from->broadcastSkillInvoke(card_use.card);
                 if (!card_use.card->getSkillName().isNull() && card_use.card->getSkillName(true) == card_use.card->getSkillName(false)
@@ -277,12 +274,6 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
             if (use.card->isKindOf("Slash"))
                 use.from->tag.remove("Jink_" + use.card->toString());
 
-            break;
-        }
-    case CardResponded: {
-            const Card *card = data.value<CardResponseStruct>().m_card;
-            if (card->isKindOf("Slash"))
-                player->setFlags("Global_SlashInPlayPhase");
             break;
         }
     case EventAcquireSkill:
@@ -411,6 +402,14 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
                     }
                 }
             }
+            if (room->getMode() == "02_1v1") {
+                foreach (ServerPlayer *p, room->getAllPlayers()) {
+                    if (p->hasFlag("Global_KOFDebut")) {
+                        p->setFlags("-Global_KOFDebut");
+                        room->getThread()->trigger(Debut, room, p);
+                    }
+                }
+            }
             break;
         }
     case CardEffected: {
@@ -475,8 +474,8 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
     case GameOverJudge: {
             if (room->getMode() == "02_1v1") {
                 QStringList list = player->tag["1v1Arrange"].toStringList();
-                if (!list.isEmpty())
-                    return false;
+                QString rule = Config.value("1v1/Rule", "2013").toString();
+                if (list.length() > ((rule == "OL") ? 3 : 0)) break;
             }
 
             QString winner = getWinner(player);
@@ -500,18 +499,22 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
 
             if (room->getMode() == "02_1v1") {
                 QStringList list = player->tag["1v1Arrange"].toStringList();
+                QString rule = Config.value("1v1/Rule", "2013").toString();
+                if (list.length() <= ((rule == "OL") ? 3 : 0)) break;
 
-                if (!list.isEmpty()) {
-                    if (Config.value("1v1/Rule", "Classical").toString() == "Classical") {
-                        player->tag["1v1ChangeGeneral"] = list.takeFirst();
-                        player->tag["1v1Arrange"] = list;
-                    } else {
-                        player->tag["1v1ChangeGeneral"] = list.first();
-                    }
-
-                    changeGeneral1v1(player);
-                    return false;
+                if (rule == "Classical") {
+                    player->tag["1v1ChangeGeneral"] = list.takeFirst();
+                    player->tag["1v1Arrange"] = list;
+                } else {
+                    player->tag["1v1ChangeGeneral"] = list.first();
                 }
+
+                changeGeneral1v1(player);
+                if (death.damage == NULL)
+                    room->getThread()->trigger(Debut, room, player);
+                else
+                    player->setFlags("Global_KOFDebut");
+                return false;
             } else if (room->getMode() == "06_XMode") {
                 changeGeneralXMode(player);
                 return false;
@@ -549,7 +552,6 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
 
             int delay = Config.AIDelay;
             if (judge->time_consuming) delay /= 1.25;
-            Q_ASSERT(room->getThread() != NULL);
             room->getThread()->delay(delay);
             if (judge->play_animation) {
                 room->sendJudgeResult(judge);
@@ -569,9 +571,11 @@ bool GameRule::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *play
             break;
         }
     case ChoiceMade: {
-            foreach (QString flag, player->getFlagList()) {
-                if (flag.startsWith("Global_") && flag.endsWith("Failed"))
-                    room->setPlayerFlag(player, "-" + flag);
+            foreach (ServerPlayer *p, room->getAlivePlayers()) {
+                foreach (QString flag, p->getFlagList()) {
+                    if (flag.startsWith("Global_") && flag.endsWith("Failed"))
+                        room->setPlayerFlag(p, "-" + flag);
+                }
             }
             break;
         }
@@ -586,14 +590,17 @@ void GameRule::changeGeneral1v1(ServerPlayer *player) const{
     Config.AIDelay = Config.OriginAIDelay;
 
     Room *room = player->getRoom();
-    bool classical = (Config.value("1v1/Rule", "Classical").toString() == "Classical");
+    bool classical = (Config.value("1v1/Rule", "2013").toString() == "Classical");
     QString new_general;
     if (classical) {
         new_general = player->tag["1v1ChangeGeneral"].toString();
         player->tag.remove("1v1ChangeGeneral");
     } else {
         QStringList list = player->tag["1v1Arrange"].toStringList();
-        new_general = room->askForGeneral(player, list);
+        if (player->getAI())
+            new_general = list.first();
+        else
+            new_general = room->askForGeneral(player, list);
         list.removeOne(new_general);
         player->tag["1v1Arrange"] = QVariant::fromValue(list);
     }
@@ -604,7 +611,6 @@ void GameRule::changeGeneral1v1(ServerPlayer *player) const{
     }
     room->revivePlayer(player);
     room->changeHero(player, new_general, true, true);
-    Q_ASSERT(player->getGeneral() != NULL);
     if (player->getGeneral()->getKingdom() == "god") {
         QString new_kingdom = room->askForKingdom(player);
         room->setPlayerProperty(player, "kingdom", new_kingdom);
@@ -632,9 +638,19 @@ void GameRule::changeGeneral1v1(ServerPlayer *player) const{
 
     room->setTag("FirstRound", true); //For Manjuan
     int draw_num = classical ? 4 : player->getMaxHp();
-    player->drawCards(draw_num);
-    room->setTag("FirstRound", false);
-    room->getThread()->trigger(Debut, room, player);
+    QVariant data = draw_num;
+    room->getThread()->trigger(DrawInitialCards, room, player, data);
+    draw_num = data.toInt();
+    try {
+        player->drawCards(draw_num);
+        room->setTag("FirstRound", false);
+    }
+    catch (TriggerEvent triggerEvent) {
+        if (triggerEvent == TurnBroken || triggerEvent == StageChange)
+            room->setTag("FirstRound", false);
+        throw triggerEvent;
+    }
+    room->getThread()->trigger(AfterDrawInitialCards, room, player, QVariant::fromValue(draw_num));
 }
 
 void GameRule::changeGeneralXMode(ServerPlayer *player) const{
@@ -652,7 +668,6 @@ void GameRule::changeGeneralXMode(ServerPlayer *player) const{
     leader->tag["XModeBackup"] = QVariant::fromValue(backup);
     room->revivePlayer(player);
     room->changeHero(player, general, true, true);
-    Q_ASSERT(player->getGeneral() != NULL);
     if (player->getGeneral()->getKingdom() == "god") {
         QString new_kingdom = room->askForKingdom(player);
         room->setPlayerProperty(player, "kingdom", new_kingdom);
@@ -675,17 +690,27 @@ void GameRule::changeGeneralXMode(ServerPlayer *player) const{
         room->setPlayerProperty(player, "chained", false);
 
     room->setTag("FirstRound", true); //For Manjuan
-    player->drawCards(4);
-    room->setTag("FirstRound", false);
+    QVariant data(4);
+    room->getThread()->trigger(DrawInitialCards, room, player, data);
+    int num = data.toInt();
+    try {
+        player->drawCards(num);
+        room->setTag("FirstRound", false);
+    }
+    catch (TriggerEvent triggerEvent) {
+        if (triggerEvent == TurnBroken || triggerEvent == StageChange)
+            room->setTag("FirstRound", false);
+        throw triggerEvent;
+    }
+    room->getThread()->trigger(AfterDrawInitialCards, room, player, QVariant::fromValue(num));
 }
 
 void GameRule::rewardAndPunish(ServerPlayer *killer, ServerPlayer *victim) const{
-    Q_ASSERT(killer->getRoom() != NULL);
     if (killer->isDead() || killer->getRoom()->getMode() == "06_XMode")
         return;
 
     if (killer->getRoom()->getMode() == "06_3v3") {
-        if (Config.value("3v3/OfficialRule", "2012").toString().startsWith("201"))
+        if (Config.value("3v3/OfficialRule", "2013").toString().startsWith("201"))
             killer->drawCards(2);
         else
             killer->drawCards(3);
@@ -753,7 +778,6 @@ QString GameRule::getWinner(ServerPlayer *victim) const{
                     QStringList generals = room->getTag(player->objectName()).toStringList();
                     room->changePlayerGeneral(player, generals.at(0));
 
-                    Q_ASSERT(player->getGeneral() != NULL);
                     room->setPlayerProperty(player, "kingdom", player->getGeneral()->getKingdom());
                     room->setPlayerProperty(player, "role", BasaraMode::getMappedRole(player->getKingdom()));
 
@@ -877,10 +901,44 @@ bool HulaoPassMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer 
                     p->drawCards(1);
             }
 
-            break;
+            return false;
         }
     case TurnStart: {
-            if (player->isLord()) {
+            if (player->isDead()) {
+                Json::Value arg(Json::arrayValue);
+                arg[0] = (int)QSanProtocol::S_GAME_EVENT_PLAYER_REFORM;
+                arg[1] = QSanProtocol::Utils::toJsonString(player->objectName());
+                room->doBroadcastNotify(QSanProtocol::S_COMMAND_LOG_EVENT, arg);
+
+                QString choice = player->isWounded() ? "recover" : "draw";
+                if (player->isWounded() && player->getHp() > 0)
+                    choice = room->askForChoice(player, "Hulaopass", "recover+draw");
+
+                if (choice == "draw") {
+                    LogMessage log;
+                    log.type = "#ReformingDraw";
+                    log.from = player;
+                    log.arg = "1";
+                    room->sendLog(log);
+                    player->drawCards(1, "reform");
+                } else {
+                    LogMessage log;
+                    log.type = "#ReformingRecover";
+                    log.from = player;
+                    log.arg = "1";
+                    room->sendLog(log);
+                    room->setPlayerProperty(player, "hp", player->getHp() + 1);
+                }
+
+                if (player->getHp() + player->getHandcardNum() == 6) {
+                    LogMessage log;
+                    log.type = "#ReformingRevive";
+                    log.from = player;
+                    room->sendLog(log);
+
+                    room->revivePlayer(player);
+                }
+            } else {
                 LogMessage log;
                 log.type = "$AppendSeparator";
                 room->sendLog(log);
@@ -890,52 +948,6 @@ bool HulaoPassMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer 
                     player->turnOver();
                 else
                     player->play();
-            } else {
-                if (player->isDead()) {
-                    Json::Value arg(Json::arrayValue);
-                    arg[0] = (int)QSanProtocol::S_GAME_EVENT_PLAYER_REFORM;
-                    arg[1] = QSanProtocol::Utils::toJsonString(player->objectName());
-                    room->doBroadcastNotify(QSanProtocol::S_COMMAND_LOG_EVENT, arg);
-
-                    QString choice = player->isWounded() ? "recover" : "draw";
-                    if (player->isWounded() && player->getHp() > 0)
-                        choice = room->askForChoice(player, "Hulaopass", "recover+draw");
-
-                    if (choice == "draw") {
-                        LogMessage log;
-                        log.type = "#ReformingDraw";
-                        log.from = player;
-                        log.arg = "1";
-                        room->sendLog(log);
-                        player->drawCards(1, "reform");
-                    } else {
-                        LogMessage log;
-                        log.type = "#ReformingRecover";
-                        log.from = player;
-                        log.arg = "1";
-                        room->sendLog(log);
-                        room->setPlayerProperty(player, "hp", player->getHp() + 1);
-                    }
-
-                    if (player->getHp() + player->getHandcardNum() == 6) {
-                        LogMessage log;
-                        log.type = "#ReformingRevive";
-                        log.from = player;
-                        room->sendLog(log);
-
-                        room->revivePlayer(player);
-                    }
-                } else {
-                    LogMessage log;
-                    log.type = "$AppendSeparator";
-                    room->sendLog(log);
-                    room->addPlayerMark(player, "Global_TurnCount");
-
-                    if (!player->faceUp())
-                        player->turnOver();
-                    else
-                        player->play();
-                }
             }
 
             return false;
@@ -990,7 +1002,6 @@ void BasaraMode::playerShowed(ServerPlayer *player) const{
         QString general_name = room->askForGeneral(player, names);
 
         generalShowed(player, general_name);
-        Q_ASSERT(room->getThread() != NULL);
         if (Config.EnableHegemony) room->getThread()->trigger(GameOverJudge, room, player);
         playerShowed(player);
     }
@@ -1001,15 +1012,8 @@ void BasaraMode::generalShowed(ServerPlayer *player, QString general_name) const
     QStringList names = room->getTag(player->objectName()).toStringList();
     if (names.isEmpty()) return;
 
-    LogMessage log;
-    log.type = "#BasaraReveal";
-    log.from = player;
-    log.arg  = player->getGeneralName();
-    log.arg2 = player->getGeneral2Name();
-    room->sendLog(log);
-
     if (player->getGeneralName() == "anjiang") {
-        room->changeHero(player, general_name, false, true, false, false);
+        room->changeHero(player, general_name, false, false, false, false);
         room->setPlayerProperty(player, "kingdom", player->getGeneral()->getKingdom());
 
         if (player->getGeneral()->getKingdom() == "god") {
@@ -1026,14 +1030,20 @@ void BasaraMode::generalShowed(ServerPlayer *player, QString general_name) const
         if (Config.EnableHegemony)
             room->setPlayerProperty(player, "role", getMappedRole(player->getKingdom()));
     } else {
-        room->changeHero(player, general_name, false, true, true, false);
+        room->changeHero(player, general_name, false, false, true, false);
     }
 
-    Q_ASSERT(room->getThread() != NULL);
     room->getThread()->addPlayerSkills(player);
 
     names.removeOne(general_name);
     room->setTag(player->objectName(), QVariant::fromValue(names));
+
+    LogMessage log;
+    log.type = "#BasaraReveal";
+    log.from = player;
+    log.arg  = player->getGeneralName();
+    log.arg2 = player->getGeneral2Name();
+    room->sendLog(log);
 }
 
 bool BasaraMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const{
@@ -1044,7 +1054,7 @@ bool BasaraMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *pl
                 room->setTag("SkipNormalDeathProcess", true);
             foreach (ServerPlayer *sp, room->getAlivePlayers()) {
                 room->setPlayerProperty(sp, "general", "anjiang");
-                sp->setGender(General::SexLess);
+                sp->setGender(General::Sexless);
                 room->setPlayerProperty(sp, "kingdom", "god");
 
                 LogMessage log;
@@ -1053,6 +1063,7 @@ bool BasaraMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *pl
 
                 if (Config.Enable2ndGeneral) {
                     room->setPlayerProperty(sp, "general2", "anjiang");
+                    log.type = "#BasaraGeneralChosenDual";
                     log.arg2 = room->getTag(sp->objectName()).toStringList().at(1);
                 }
 
@@ -1083,6 +1094,9 @@ bool BasaraMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *pl
                     log.arg2 = ces.card->objectName();
                     room->sendLog(log);
 
+                    room->broadcastSkillInvoke(prohibit->objectName());
+                    room->notifySkillInvoked(ces.to, prohibit->objectName());
+
                     return true;
                 }
             }
@@ -1103,7 +1117,6 @@ bool BasaraMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *pl
                 QStringList generals = room->getTag(player->objectName()).toStringList();
                 room->changePlayerGeneral(player, generals.at(0));
 
-                Q_ASSERT(player->getGeneral() != NULL);
                 room->setPlayerProperty(player, "kingdom", player->getGeneral()->getKingdom());
                 if (Config.EnableHegemony)
                     room->setPlayerProperty(player, "role", getMappedRole(player->getKingdom()));
@@ -1114,6 +1127,7 @@ bool BasaraMode::trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *pl
             if (Config.Enable2ndGeneral && player->getGeneral2Name() == "anjiang") {
                 QStringList generals = room->getTag(player->objectName()).toStringList();
                 room->changePlayerGeneral2(player, generals.at(0));
+                room->removeTag(player->objectName());
             }
             break;
         }

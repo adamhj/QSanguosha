@@ -17,7 +17,7 @@ class Shangshi: public TriggerSkill {
 
 public:
     Shangshi();
-    virtual bool trigger(TriggerEvent event, Room *room, ServerPlayer *zhangchunhua, QVariant &data) const;
+    virtual bool trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *zhangchunhua, QVariant &data) const;
 
 protected:
     virtual int getMaxLostHp(ServerPlayer *zhangchunhua) const;
@@ -42,15 +42,6 @@ public:
     virtual bool targetsFeasible(const QList<const Player *> &targets, const Player *Self) const;
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
     virtual void use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const;
-};
-
-class XianzhenSlashCard: public SkillCard {
-    Q_OBJECT
-
-public:
-    Q_INVOKABLE XianzhenSlashCard();
-
-    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
 };
 
 class XianzhenCard: public SkillCard {
@@ -98,7 +89,7 @@ public:
     Q_INVOKABLE PaiyiCard();
 
     virtual bool targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const;
-    virtual void onUse(Room *room, const CardUseStruct &card_use) const;
+    virtual void onEffect(const CardEffectStruct &effect) const;
 };
 
 #endif

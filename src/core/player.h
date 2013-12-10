@@ -35,8 +35,6 @@ class Player: public QObject {
     Q_PROPERTY(QString flags READ getFlags WRITE setFlags)
     Q_PROPERTY(bool chained READ isChained WRITE setChained)
     Q_PROPERTY(bool owner READ isOwner WRITE setOwner)
-    Q_PROPERTY(bool ready READ isReady WRITE setReady)
-    Q_PROPERTY(int atk READ getAttackRange)
     Q_PROPERTY(bool role_shown READ hasShownRole WRITE setShownRole)
 
     Q_PROPERTY(bool kongcheng READ isKongcheng)
@@ -68,16 +66,12 @@ public:
     bool isWounded() const;
     General::Gender getGender() const;
     virtual void setGender(General::Gender gender);
-    bool isSexLess() const;
     bool isMale() const;
     bool isFemale() const;
     bool isNeuter() const;
 
     bool isOwner() const;
     void setOwner(bool owner);
-
-    bool isReady() const;
-    void setReady(bool ready);
 
     bool hasShownRole() const;
     void setShownRole(bool shown);
@@ -104,12 +98,13 @@ public:
 
     int getSeat() const;
     void setSeat(int seat);
+    bool isAdjacentTo(const Player *another) const;
     QString getPhaseString() const;
     void setPhaseString(const QString &phase_str);
     Phase getPhase() const;
     void setPhase(Phase phase);
 
-    int getAttackRange() const;
+    int getAttackRange(bool include_weapon = true) const;
     bool inMyAttackRange(const Player *other) const;
 
     bool isAlive() const;
@@ -140,7 +135,7 @@ public:
     virtual void loseSkill(const QString &skill_name);
     bool hasSkill(const QString &skill_name, bool include_lose = false) const;
     bool hasSkills(const QString &skill_name, bool include_lose = false) const;
-    bool hasInnateSkill(const QString &skill_name, bool include_lose = false) const;
+    bool hasInnateSkill(const QString &skill_name) const;
     bool hasLordSkill(const QString &skill_name, bool include_lose = false) const;
     virtual QString getGameMode() const = 0;
 
@@ -150,7 +145,7 @@ public:
     bool hasEquip() const;
 
     QList<const Card *> getJudgingArea() const;
-    QList<int> getJudgingAreaID() const; //for marshal
+    QList<int> getJudgingAreaID() const;
     void addDelayedTrick(const Card *trick);
     void removeDelayedTrick(const Card *trick);
     bool containsTrick(const QString &trick_name) const;
@@ -177,8 +172,8 @@ public:
     bool canDiscard(const Player *to, const QString &flags) const;
     bool canDiscard(const Player *to, int card_id) const;
 
-    void addMark(const QString &mark);
-    void removeMark(const QString &mark);
+    void addMark(const QString &mark, int add_num = 1);
+    void removeMark(const QString &mark, int remove_num = 1);
     virtual void setMark(const QString &mark, int value);
     int getMark(const QString &mark) const;
 
@@ -189,14 +184,14 @@ public:
                   int rangefix = 0, const QList<const Player *> &others = QList<const Player *>()) const;
     bool canSlash(const Player *other, bool distance_limit = true,
                   int rangefix = 0, const QList<const Player *> &others = QList<const Player *>()) const;
-    int getCardCount(bool include_equip) const;
+    int getCardCount(bool include_equip = true, bool include_judging = false) const;
 
     QList<int> getPile(const QString &pile_name) const;
     QStringList getPileNames() const;
     QString getPileName(int card_id) const;
-
     bool pileOpen(const QString &pile_name, const QString &player) const;
     void setPileOpen(const QString &pile_name, const QString &player);
+
 
     void addHistory(const QString &name, int times = 1);
     void clearHistory();
@@ -214,7 +209,7 @@ public:
     QString getSkillDescription() const;
 
     virtual bool isProhibited(const Player *to, const Card *card, const QList<const Player *> &others = QList<const Player *>()) const;
-    bool canSlashWithoutCrossbow() const;
+    bool canSlashWithoutCrossbow(const Card *slash = NULL) const;
     virtual bool isLastHandCard(const Card *card, bool contain = false) const = 0;
 
     inline bool isJilei(const Card *card) const{ return isCardLimited(card, Card::MethodDiscard); }
@@ -225,9 +220,14 @@ public:
     void clearCardLimitation(bool single_turn = false);
     bool isCardLimited(const Card *card, Card::HandlingMethod method, bool isHandcard = false) const;
 
+    // just for convenience
+    void addQinggangTag(const Card *card);
+    void removeQinggangTag(const Card *card);
+
     void copyFrom(Player *p);
 
     QList<const Player *> getSiblings() const;
+    QList<const Player *> getAliveSiblings() const;
 
     QVariantMap tag;
 
@@ -243,7 +243,6 @@ protected:
 private:
     QString screen_name;
     bool owner;
-    bool ready;
     const General *general, *general2;
     General::Gender m_gender;
     int hp, max_hp;
@@ -272,7 +271,6 @@ signals:
     void kingdom_changed();
     void phase_changed();
     void owner_changed(bool owner);
-    void ready_changed(bool ready);
 };
 
 #endif

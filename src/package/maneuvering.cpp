@@ -11,7 +11,8 @@ NatureSlash::NatureSlash(Suit suit, int number, DamageStruct::Nature nature)
 }
 
 bool NatureSlash::match(const QString &pattern) const{
-    if (pattern == "slash")
+    QStringList patterns = pattern.split("+");
+    if (patterns.contains("slash"))
         return true;
     else
         return Slash::match(pattern);
@@ -42,14 +43,14 @@ QString Analeptic::getSubtype() const{
 }
 
 bool Analeptic::IsAvailable(const Player *player, const Card *analeptic) {
-    Analeptic *newanal = new Analeptic(Card::NoSuit, 0);
-    newanal->deleteLater();
-#define THIS_ANAL (analeptic == NULL ? newanal : analeptic)
-    if (player->isCardLimited(THIS_ANAL, Card::MethodUse) || player->isProhibited(player, THIS_ANAL))
+    Analeptic *newanaleptic = new Analeptic(Card::NoSuit, 0);
+    newanaleptic->deleteLater();
+#define THIS_ANALEPTIC (analeptic == NULL ? newanaleptic : analeptic)
+    if (player->isCardLimited(THIS_ANALEPTIC, Card::MethodUse) || player->isProhibited(player, THIS_ANALEPTIC))
         return false;
 
-    return player->usedTimes("Analeptic") <= Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_ANAL);
-#undef THIS_ANAL
+    return player->usedTimes("Analeptic") <= Sanguosha->correctCardTarget(TargetModSkill::Residue, player, THIS_ANALEPTIC);
+#undef THIS_ANALEPTIC
 }
 
 bool Analeptic::isAvailable(const Player *player) const{
@@ -73,7 +74,7 @@ void Analeptic::onEffect(const CardEffectStruct &effect) const{
     Room *room = effect.to->getRoom();
     room->setEmotion(effect.to, "analeptic");
 
-    if (effect.to->hasFlag("Global_Dying")) {
+    if (effect.to->hasFlag("Global_Dying") && Sanguosha->getCurrentCardUseReason() != CardUseStruct::CARD_USE_REASON_PLAY) {
         // recover hp
         RecoverStruct recover;
         recover.card = this;
@@ -87,6 +88,7 @@ void Analeptic::onEffect(const CardEffectStruct &effect) const{
 class FanSkill: public OneCardViewAsSkill {
 public:
     FanSkill(): OneCardViewAsSkill("Fan") {
+        filter_pattern = "%slash";
     }
 
     virtual bool isEnabledAtPlay(const Player *player) const{
@@ -96,10 +98,6 @@ public:
     virtual bool isEnabledAtResponse(const Player *player, const QString &pattern) const{
         return Sanguosha->currentRoomState()->getCurrentCardUseReason() == CardUseStruct::CARD_USE_REASON_RESPONSE_USE
                && pattern == "slash" && player->getMark("Equips_Nullified_to_Yourself") == 0;
-    }
-
-    virtual bool viewFilter(const Card *to_select) const{
-        return to_select->objectName() == "slash";
     }
 
     virtual const Card *viewAs(const Card *originalCard) const{
@@ -127,7 +125,7 @@ public:
         if (damage.card && damage.card->isKindOf("Slash")
             && damage.to->getMark("Equips_of_Others_Nullified_to_You") == 0
             && damage.to->isKongcheng() && damage.by_user && !damage.chain && !damage.transfer) {
-            room->setEmotion(player, "weapon/guding_blade");
+            room->setEmotion(player, "weapon/GudingBlade");
 
             LogMessage log;
             log.type = "#GudingBladeEffect";
@@ -160,7 +158,7 @@ public:
         if (triggerEvent == SlashEffected) {
             SlashEffectStruct effect = data.value<SlashEffectStruct>();
             if (effect.nature == DamageStruct::Normal) {
-                room->setEmotion(player, "armor/vine");
+                room->setEmotion(player, "armor/Vine");
                 LogMessage log;
                 log.from = player;
                 log.type = "#ArmorNullify";
@@ -174,7 +172,7 @@ public:
         } else if (triggerEvent == CardEffected) {
             CardEffectStruct effect = data.value<CardEffectStruct>();
             if (effect.card->isKindOf("AOE")) {
-                room->setEmotion(player, "armor/vine");
+                room->setEmotion(player, "armor/Vine");
                 LogMessage log;
                 log.from = player;
                 log.type = "#ArmorNullify";
@@ -188,7 +186,7 @@ public:
         } else if (triggerEvent == DamageInflicted) {
             DamageStruct damage = data.value<DamageStruct>();
             if (damage.nature == DamageStruct::Fire) {
-                room->setEmotion(player, "armor/vineburn");
+                room->setEmotion(player, "armor/VineBurn");
                 LogMessage log;
                 log.type = "#VineDamage";
                 log.from = player;
@@ -217,14 +215,14 @@ public:
     }
 
     virtual bool triggerable(const ServerPlayer *target) const{
-        return target && target->isAlive();
+        return target != NULL && target->isAlive();
     }
 
     virtual bool trigger(TriggerEvent triggerEvent, Room *room, ServerPlayer *player, QVariant &data) const{
         if (triggerEvent == DamageInflicted && ArmorSkill::triggerable(player)) {
             DamageStruct damage = data.value<DamageStruct>();
             if (damage.damage > 1) {
-                room->setEmotion(player, "armor/silver_lion");
+                room->setEmotion(player, "armor/SilverLion");
                 LogMessage log;
                 log.type = "#SilverLion";
                 log.from = player;
@@ -245,7 +243,7 @@ public:
                 if (card->objectName() == objectName()) {
                     player->setFlags("-SilverLionRecover");
                     if (player->isWounded()) {
-                        room->setEmotion(player, "armor/silver_lion");
+                        room->setEmotion(player, "armor/SilverLion");
                         RecoverStruct recover;
                         recover.card = card;
                         room->recover(player, recover);
@@ -266,9 +264,8 @@ SilverLion::SilverLion(Suit suit, int number)
 }
 
 void SilverLion::onUninstall(ServerPlayer *player) const{
-    if (player->isAlive() && player->hasArmorEffect(objectName())) {
+    if (player->isAlive() && player->hasArmorEffect(objectName()))
         player->setFlags("SilverLionRecover");
-    }
 }
 
 FireAttack::FireAttack(Card::Suit suit, int number)
@@ -279,16 +276,7 @@ FireAttack::FireAttack(Card::Suit suit, int number)
 
 bool FireAttack::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const{
     int total_num = 1 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
-    if (targets.length() >= total_num)
-        return false;
-
-    if (to_select->isKongcheng())
-        return false;
-
-    if (to_select == Self)
-        return !Self->isLastHandCard(this, true);
-    else
-        return true;
+    return targets.length() < total_num && !to_select->isKongcheng() && (to_select != Self || !Self->isLastHandCard(this, true));
 }
 
 void FireAttack::onEffect(const CardEffectStruct &effect) const{
@@ -327,19 +315,14 @@ QString IronChain::getSubtype() const{
 
 bool IronChain::targetFilter(const QList<const Player *> &targets, const Player *, const Player *Self) const{
     int total_num = 2 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
-    if (targets.length() >= total_num)
-        return false;
-    if (Self->isCardLimited(this, Card::MethodUse))
-        return false;
-
-    return true;
+    return targets.length() < total_num && !Self->isCardLimited(this, Card::MethodUse);
 }
 
 bool IronChain::targetsFeasible(const QList<const Player *> &targets, const Player *Self) const{
     if (Self->isCardLimited(this, Card::MethodUse))
         return targets.length() == 0;
     int total_num = 2 + Sanguosha->correctCardTarget(TargetModSkill::ExtraTarget, Self, this);
-    if (getSkillName() == "guhuo" || getSkillName() == "qice")
+    if (getSkillName().contains("guhuo") || getSkillName() == "qice")
         return targets.length() > 0 && targets.length() <= total_num;
     else
         return targets.length() <= total_num;
@@ -363,11 +346,6 @@ void IronChain::onUse(Room *room, const CardUseStruct &card_use) const{
         TrickCard::onUse(room, card_use);
 }
 
-void IronChain::use(Room *room, ServerPlayer *source, QList<ServerPlayer *> &targets) const{
-    source->broadcastSkillInvoke("@tiesuo");
-    TrickCard::use(room, source, targets);
-}
-
 void IronChain::onEffect(const CardEffectStruct &effect) const{
     effect.to->setChained(!effect.to->isChained());
 
@@ -389,13 +367,7 @@ SupplyShortage::SupplyShortage(Card::Suit suit, int number)
 }
 
 bool SupplyShortage::targetFilter(const QList<const Player *> &targets, const Player *to_select, const Player *Self) const{
-    if (!targets.isEmpty())
-        return false;
-
-    if (to_select == Self)
-        return false;
-
-    if (to_select->containsTrick(objectName()))
+    if (!targets.isEmpty() || to_select->containsTrick(objectName()) || to_select == Self)
         return false;
 
     int distance_limit = 1 + Sanguosha->correctCardTarget(TargetModSkill::DistanceLimit, Self, this);
@@ -414,7 +386,7 @@ void SupplyShortage::takeEffect(ServerPlayer *target) const{
 }
 
 ManeuveringPackage::ManeuveringPackage()
-    : Package("maneuvering")
+    : Package("maneuvering", Package::CardPack)
 {
     QList<Card *> cards;
 
@@ -484,7 +456,6 @@ ManeuveringPackage::ManeuveringPackage()
     foreach (Card *card, cards)
         card->setParent(this);
 
-    type = CardPack;
     skills << new GudingBladeSkill << new FanSkill
            << new VineSkill << new SilverLionSkill;
 }

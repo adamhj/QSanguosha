@@ -34,9 +34,23 @@ sgs.ai_skill_use_func.JuaoCard = function(card, use, self)
 				end
 			end
 		end
-		if friend:hasSkill("jizhi") then --队友有集智
+		if friend:hasSkill("nosjizhi") then --队友有集智
 			for _, hcard in sgs.qlist(cards) do
 				if hcard:isKindOf("TrickCard") and not hcard:isKindOf("DelayedTrick") then
+					table.insert(givecard, hcard:getId())
+				end
+				if #givecard == 1 and givecard[1] ~= hcard:getId() then
+					table.insert(givecard, hcard:getId())
+				elseif #givecard == 2 then
+					use.card = sgs.Card_Parse("@JuaoCard=" .. table.concat(givecard, "+"))
+					if use.to then use.to:append(friend) end
+					return
+				end
+			end
+		end
+		if friend:hasSkill("jizhi") then --队友有集智
+			for _, hcard in sgs.qlist(cards) do
+				if hcard:isKindOf("TrickCard") then
 					table.insert(givecard, hcard:getId())
 				end
 				if #givecard == 1 and givecard[1] ~= hcard:getId() then
@@ -171,16 +185,16 @@ sgs.ai_skill_invoke.tanlan = function(self, data)
 	end
 end
 
-sgs.ai_choicemade_filter.skillInvoke.tanlan = function(player, promptlist, self)
-	if sgs.tanlan_target and promptlist[3] == "yes" then
-		local target = sgs.tanlan_target
+sgs.ai_choicemade_filter.skillInvoke.tanlan = function(self, player, promptlist)
+	local damage = self.room:getTag("CurrentDamageStruct"):toDamage()
+	if damage.from and promptlist[3] == "yes" then
+		local target = damage.from
 		local intention = 10
 		if target:getHandcardNum() == 1 and self:needKongcheng(target) then intention = 0 end
 		if self:getOverflow(target) > 2 then intention = 0 end
 		if not self:hasLoseHandcardEffective(target) then intention = 0 end
-		sgs.updateIntention(player, sgs.tanlan_target, intention)
+		sgs.updateIntention(player, target, intention)
 	end
-	sgs.tanlan_target = nil
 end
 
 function sgs.ai_skill_pindian.tanlan(minusecard, self, requestor)
@@ -395,6 +409,7 @@ sgs.ai_chaofeng.wis_sunce = 1
 	描述：回合结束阶段开始时，你可以选择一名其他角色摸取与你弃牌阶段弃牌数量相同的牌 
 ]]--
 sgs.ai_skill_playerchosen.longluo = function(self, targets)
+	if #self.friends <= 1 then return nil end
 	local n = self.player:getMark("longluo")
 	local to = self:findPlayerToDraw(false, n)
 	if to then return to end
@@ -402,10 +417,6 @@ sgs.ai_skill_playerchosen.longluo = function(self, targets)
 end
 
 sgs.ai_playerchosen_intention.longluo = -60
-
-sgs.ai_skill_invoke.longluo = function(self, data)
-	return #self.friends > 1
-end
 
 --[[
 	技能：辅佐
@@ -446,7 +457,7 @@ sgs.ai_skill_use["@@fuzuo"] = function(self, prompt, method)
 		if acard:isKindOf("ExNihilo") or acard:isKindOf("Peach") or acard:isKindOf("Snatch") or acard:isKindOf("Dismantlement") or acard:isKindOf("Duel") then
 			Valuable = true
 			break
-		elseif acard:isKindOf("Slash") and self:isEquip("Crossbow", from) and reason ~= "zhiba_pindian" then
+		elseif acard:isKindOf("Slash") and self:hasCrossbowEffect(from) and reason ~= "zhiba_pindian" then
 			Valuable = true
 		end
 	end
@@ -473,7 +484,7 @@ sgs.ai_skill_use["@@fuzuo"] = function(self, prompt, method)
 			return "@FuzuoCard="..card:getEffectiveId().."->"..to:objectName()
 		end
 		
-	elseif reason == " lieren" or reason == "tanlan"  or reason == "jueji" then
+	elseif reason == "lieren" or reason == "tanlan"  or reason == "jueji" then
 		if Valuable or not onlyone_Jink_Peach or self:getOverflow() > 0 and self:willSkipPlayPhase() then
 			if self:isFriend(from) and not self:isFriend(to) and from_num < to_num then
 				return "@FuzuoCard="..card:getEffectiveId().."->"..from:objectName() 
@@ -514,9 +525,6 @@ end
 	技能：尽瘁
 	描述：当你死亡时，可令一名角色摸取或者弃置三张牌 
 ]]--
-sgs.ai_skill_invoke.jincui = function(self, data)
-	return true
-end
 
 sgs.ai_skill_playerchosen.jincui = function(self, targets)
 	local AssistTarget = self:AssistTarget()
@@ -562,7 +570,7 @@ end
 
 --你使用黑色的【杀】造成的伤害+1，你无法闪避红色的【杀】
 
-sgs.ai_slash_prohibit.wenjiu = function(self, to, card)
+sgs.ai_slash_prohibit.wenjiu = function(self, from, to, card)
 	local has_black_slash, has_red_slash
 	local slashes = self:getCards("Slash")
 	for _, slash in ipairs(slashes) do
@@ -610,7 +618,7 @@ sgs.ai_skill_cardask["@askforslash"] = function(self, data)
 end
 
 
-sgs.ai_slash_prohibit.badao = function(self, to, card)
+sgs.ai_slash_prohibit.badao = function(self, from, to, card)
 	local has_black_slash, has_red_slash
 	local slashes = self:getCards("Slash")
 	for _, slash in ipairs(slashes) do
@@ -642,15 +650,19 @@ end
 	技能：识破
 	描述：任意角色判定阶段判定前，你可以弃置两张牌，获得该角色判定区里的所有牌 
 ]]--
-sgs.ai_skill_invoke.shipo = function(self, data)
-	local target = data:toPlayer()
+
+sgs.ai_skill_discard.shipo = function(self)
+	local target = self.room:getCurrent()
 	if ((target:containsTrick("supply_shortage") and target:getHp() > target:getHandcardNum()) or
 		(target:containsTrick("indulgence") and target:getHandcardNum() > target:getHp()-1)) then
-		return self:isFriend(target)
+		if self:isFriend(target) then
+			return self:askForDiscard("dummyreason", 2, 2, false, true)
+		end
 	end
+	return {}
 end
 
-sgs.ai_choicemade_filter.skillInvoke.shipo = function(player, promptlist, self)
+sgs.ai_choicemade_filter.skillInvoke.shipo = function(self, player, promptlist)
 	if promptlist[3] == "yes" then
 		local cp = self.room:getCurrent()
 		sgs.updateIntention(player, cp, -10)
@@ -658,7 +670,7 @@ sgs.ai_choicemade_filter.skillInvoke.shipo = function(player, promptlist, self)
 end
 
 sgs.ai_cardneed.gushou = function(to, card)
-	return to:getHandcardNum() < 3 and card:getTypeId() == sgs.Card_Basic
+	return to:getHandcardNum() < 3 and card:getTypeId() == sgs.Card_TypeBasic
 end
 
 sgs.ai_chaofeng.tianfeng = -1
@@ -768,7 +780,7 @@ sgs.ai_skill_invoke.shien = function(self, data)
 	return false
 end
 
-sgs.ai_choicemade_filter.skillInvoke.shien = function(player, promptlist, self)
+sgs.ai_choicemade_filter.skillInvoke.shien = function(self, player, promptlist)
 	local simahui = self.room:findPlayerBySkillName("shien")
 	if simahui and promptlist[3] == "yes" then
 		sgs.updateIntention(player, simahui, -10)

@@ -54,6 +54,7 @@ private:
     int item;
     QStringList ban_list;
     QPushButton *add2nd;
+    QMap<QString, QStringList> banned_items;
 
 private slots:
     void addGeneral(const QString &name);
@@ -128,12 +129,11 @@ private:
     QSpinBox *nullification_spinbox;
     QCheckBox *minimize_dialog_checkbox;
     QCheckBox *ai_enable_checkbox;
-    QCheckBox *role_predictable_checkbox;
-    QCheckBox *ai_chat_checkbox;
     QSpinBox *ai_delay_spinbox;
     QCheckBox *ai_delay_altered_checkbox;
     QSpinBox *ai_delay_ad_spinbox;
     QCheckBox *surrender_at_death_checkbox;
+    QCheckBox *luck_card_checkbox;
     QRadioButton *official_3v3_radiobutton;
     QComboBox *official_3v3_ComboBox;
     QComboBox *role_choose_ComboBox;

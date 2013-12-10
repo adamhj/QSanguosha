@@ -52,10 +52,14 @@ public:
     bool AlterAIDelayAD;
     int AIDelayAD;
     bool SurrenderAtDeath;
+    bool EnableLuckCard;
     ushort ServerPort;
     bool DisableLua;
     int MaxIdleCount;
     int IdleReservedTime;
+
+    QStringList ExtraHiddenGenerals;
+    QStringList RemovedHiddenGenerals;
 
     // client side
     QString HostAddress;
@@ -69,6 +73,7 @@ public:
     bool NeverNullifyMyTrick;
     bool EnableAutoTarget;
     bool EnableIntellectualSelection;
+    bool EnableDoubleClick;
     int OperationTimeout;
     bool OperationNoLimit;
     bool EnableEffects;
