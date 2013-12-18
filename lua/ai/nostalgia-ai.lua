@@ -151,16 +151,16 @@ function sgs.ai_slash_prohibit.nosenyuan(self, from, to, card)
 	
 	local role = from:objectName() == self.player:objectName() and from:getRole() or sgs.ai_role[from:objectName()]
 	if (role == "loyalist" or role == "lord") and sgs.current_mode_players.rebel + sgs.current_mode_players.renegade == 1
-		and to:getHp() == 1 and getCardsNum("Peach", to) < 1 and getCardsNum("Analeptic", to) < 1
-		and (from:getHp() > 1 or getCardsNum("Peach", from) >= 1 and getCardsNum("Analeptic", from) >= 1) then
+		and to:getHp() == 1 and getCardsNum("Peach", to, self.player) < 1 and getCardsNum("Analeptic", to, self.player) < 1
+		and (from:getHp() > 1 or getCardsNum("Peach", from, self.player) >= 1 and getCardsNum("Analeptic", from, self.player) >= 1) then
 		return false
 	end
 	if role == "rebel" and isLord(to) and self:getAllPeachNum(player) < 1 and to:getHp() == 1
-		and (from:getHp() > 1 or getCardsNum("Peach", from) >= 1 and getCardsNum("Analeptic", from) >= 1) then
+		and (from:getHp() > 1 or getCardsNum("Peach", from, self.player) >= 1 and getCardsNum("Analeptic", from, self.player) >= 1) then
 		return false
 	end
-	if role == "renegade" and from:aliveCount() == 2 and to:getHp() == 1 and getCardsNum("Peach", to) < 1 and getCardsNum("Analeptic", to) < 1
-		and (from:getHp() > 1 or getCardsNum("Peach", from) >= 1 and getCardsNum("Analeptic", from) >= 1) then
+	if role == "renegade" and from:aliveCount() == 2 and to:getHp() == 1 and getCardsNum("Peach", to, self.player) < 1 and getCardsNum("Analeptic", to, self.player) < 1
+		and (from:getHp() > 1 or getCardsNum("Peach", from, self.player) >= 1 and getCardsNum("Analeptic", from, self.player) >= 1) then
 		return false
 	end
 	
@@ -178,8 +178,8 @@ function sgs.ai_slash_prohibit.nosenyuan(self, from, to, card)
 	return self:isWeak(from)
 end
 
-sgs.ai_need_damaged.nosenyuan = function (self, attacker, player)	
-	if player:hasSkill("nosenyuan") and self:isEnemy(attacker, player) and self:isWeak(attacker)
+sgs.ai_need_damaged.nosenyuan = function (self, attacker, player)
+	if player:hasSkill("nosenyuan") and attacker and self:isEnemy(attacker, player) and self:isWeak(attacker)
 		and not (self:needToLoseHp(attacker) and not self:hasSkills(sgs.masochism_skill, attacker)) then
 			return true
 	end
@@ -639,12 +639,13 @@ function sgs.ai_slash_prohibit.nosleiji(self, from, to, card)
 				break
 			end
 		end
-		if not other_rebel and ((from:getHp() >= 4 and (getCardsNum("Peach", from) > 0 or from:hasSkills("ganglie|vsganglie"))) or from:hasSkill("hongyan")) then
+		if not other_rebel and ((from:getHp() >= 4 and (getCardsNum("Peach", from, self.player) > 0 or from:hasSkills("ganglie|vsganglie"))) or from:hasSkill("hongyan")) then
 			return false
 		end
 	end
 
-	if getKnownCard(to, "Jink", true) >= 1 or (self:hasSuit("spade", true, to) and hcard >= 2) then return true end
+	if sgs.card_lack[to:objectName()]["Jink"] == 2 then return true end
+	if getKnownCard(to, "Jink", true) >= 1 or (self:hasSuit("spade", true, to) and hcard >= 2) or hcard >= 4 then return true end
 	if self:hasEightDiagramEffect(to) then return true end
 end
 
@@ -850,6 +851,16 @@ nosguhuo_skill.getTurnUseCard = function(self)
 		end
 	end
 
+	if self:isWeak() then
+		local peach_str = self:getGuhuoCard("Peach", true, -1)
+		if peach_str then
+			local card = sgs.Card_Parse(peach_str)
+			local peach = sgs.Sanguosha:cloneCard("peach", card:getSuit(), card:getNumber())
+			local dummy_use = { isDummy = true }
+			self:useBasicCard(peach, dummy_use)
+			if dummy_use.card then return card end
+		end
+	end
 	local slash_str = self:getGuhuoCard("Slash", true, -1)
 	if slash_str and self:slashIsAvailable() then
 		local card = sgs.Card_Parse(slash_str)

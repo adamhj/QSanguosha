@@ -231,16 +231,16 @@ function sgs.ai_slash_prohibit.enyuan(self, from, to)
 	if num >= 3 or from:hasSkills("lianying|shangshi|nosshangshi") or (self:needKongcheng(from, true) and num == 2) then return false end
 	local role = from:objectName() == self.player:objectName() and from:getRole() or sgs.ai_role[from:objectName()]
 	if (role == "loyalist" or role == "lord") and sgs.current_mode_players.rebel + sgs.current_mode_players.renegade == 1
-		and to:getHp() == 1 and getCardsNum("Peach", to) < 1 and getCardsNum("Analeptic", to) < 1
-		and (from:getHp() > 1 or getCardsNum("Peach", from) >= 1 and getCardsNum("Analeptic", from) >= 1) then
+		and to:getHp() == 1 and getCardsNum("Peach", to, from) < 1 and getCardsNum("Analeptic", to, from) < 1
+		and (from:getHp() > 1 or getCardsNum("Peach", from, from) >= 1 and getCardsNum("Analeptic", from, from) >= 1) then
 		return false
 	end
 	if role == "rebel" and isLord(to) and self:getAllPeachNum(player) < 1 and to:getHp() == 1
-		and (from:getHp() > 1 or getCardsNum("Peach", from) >= 1 and getCardsNum("Analeptic", from) >= 1) then
+		and (from:getHp() > 1 or getCardsNum("Peach", from, from) >= 1 and getCardsNum("Analeptic", from, from) >= 1) then
 		return false
 	end
-	if role == "renegade" and from:aliveCount() == 2 and to:getHp() == 1 and getCardsNum("Peach", to) < 1 and getCardsNum("Analeptic", to) < 1
-		and (from:getHp() > 1 or getCardsNum("Peach", from) >= 1 and getCardsNum("Analeptic", from) >= 1) then
+	if role == "renegade" and from:aliveCount() == 2 and to:getHp() == 1 and getCardsNum("Peach", to, from) < 1 and getCardsNum("Analeptic", to, from) < 1
+		and (from:getHp() > 1 or getCardsNum("Peach", from, from) >= 1 and getCardsNum("Analeptic", from, from) >= 1) then
 		return false
 	end
 	return #self.enemies > 1
@@ -248,6 +248,7 @@ end
 
 sgs.ai_need_damaged.enyuan = function (self, attacker, player)
 	if not player:hasSkill("enyuan") then return false end
+	if not attacker then return end
 	if self:isEnemy(attacker, player) and self:isWeak(attacker) and attacker:getHandcardNum() < 3 
 	  and not self:hasSkills("lianying|shangshi|nosshangshi", attacker)
 	  and not (attacker:hasSkill("kongcheng") and attacker:getHandcardNum() > 0)

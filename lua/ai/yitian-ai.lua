@@ -910,7 +910,7 @@ sgs.ai_skill_use["@@toudu"] = function(self, prompt)
 	self:sortByKeepValue(cards)
 	for _, card in ipairs(cards) do
 		if not (isCard("Peach", card, self.player) and self:isFriend(toudu_target)) then
-			return "@TouduCard=" .. card:getEffectiveId() .. "->" .. toutu_target:objectName()
+			return "@TouduCard=" .. card:getEffectiveId() .. "->" .. toudu_target:objectName()
 		end
 	end
 	return "."
@@ -926,7 +926,7 @@ sgs.ai_need_damaged.toudu = function(self, attacker, player)
 		local slash = sgs.Sanguosha:cloneCard("Slash", sgs.Card_NoSuit, 0)
 		for _, target in ipairs(self.enemies) do
 			if self:isEnemy(target) and self:slashIsEffective(slash, target) and not self:getDamagedEffects(target, self.player, true)
-				and getCardsNum("Jink", target) < 1 and (target:getHp() == 1 or self:hasHeavySlashDamage(player, nil, target) and target:getHp() == 2) then
+				and getCardsNum("Jink", target, self.player) < 1 and (target:getHp() == 1 or self:hasHeavySlashDamage(player, nil, target) and target:getHp() == 2) then
 				return true
 			end
 		end

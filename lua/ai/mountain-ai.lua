@@ -352,7 +352,7 @@ sgs.ai_slash_prohibit.tuntian = function(self, from, to, card)
 	end
 	local enemies = self:getEnemies(to)
 	if #enemies == 1 and self.room:alivePlayerCount() == 2 and self:hasSkills("noswuyan|qianxun|weimu", enemies[1]) then return false end
-	if getCardsNum("Jink", to) < 1 or sgs.card_lack[to:objectName()]["Jink"] == 1 or self:isWeak(to) then return false end
+	if getCardsNum("Jink", to, from) < 1 or sgs.card_lack[to:objectName()]["Jink"] == 1 or self:isWeak(to) then return false end
 	if to:getHandcardNum() >= 3 and to:hasSkill("zaoxian") then return true end	
 	return false	
 end
@@ -412,7 +412,7 @@ sgs.ai_skill_cardask["@xiangle-discard"] = function(self, data)
 	if has_slash then return "$" .. has_slash:getEffectiveId()
 	elseif has_jink then return "$" .. has_jink:getEffectiveId()
 	elseif has_analeptic or has_peach then
-		if getCardsNum("Jink", target) == 0 and self.player:getMark("drank") > 0 and self:getAllPeachNum(target) == 0 then
+		if getCardsNum("Jink", target, self.player) == 0 and self.player:getMark("drank") > 0 and self:getAllPeachNum(target) == 0 then
 			if has_analeptic then return "$" .. has_analeptic:getEffectiveId()
 			else return "$" .. has_peach:getEffectiveId()
 			end
@@ -429,9 +429,9 @@ function sgs.ai_slash_prohibit.xiangle(self, from, to)
 		analeptic_num = self:getCardsNum("Analeptic")
 		jink_num = self:getCardsNum("Jink")
 	else
-		slash_num = getCardsNum("Slash", from)
-		analeptic_num = getCardsNum("Analpetic", from)
-		jink_num = getCardsNum("Jink", from)
+		slash_num = getCardsNum("Slash", from, self.player)
+		analeptic_num = getCardsNum("Analpetic", from, self.player)
+		jink_num = getCardsNum("Jink", from, self.player)
 	end
 	if self.player:getHandcardNum() == 2 then
 		if self.player:hasSkill("beifa") then self.player:setFlags("stack_overflow_xiangle") end
@@ -1085,7 +1085,7 @@ function sgs.ai_skill_choice.huashen(self, choices, data, xiaode_choice)
 			end
 		end
 
-		for _, askill in ipairs(("manjuan|tuxi|dimeng|haoshi|guanxing|zhiheng|qiaobian|qice|noslijian|lijian|neofanjian|shuijian|shelie|luoshen|" ..
+		for _, askill in ipairs(("manjuan|tuxi|dimeng|haoshi|guanxing|zhiheng|qiaobian|qice|noslijian|lijian|neofanjian|shuijian|shelie|xunxun|luoshen|" ..
 		"yongsi|shude|biyue|yingzi|qingnang|caizhaoji_hujia"):split("|")) do
 			if str:matchOne(askill) then return askill end
 		end
@@ -1099,7 +1099,7 @@ function sgs.ai_skill_choice.huashen(self, choices, data, xiaode_choice)
 
 		for _, askill in ipairs(("fanjian|duyi|mizhao|quhu|gongxin|duanliang|hongyuan|guose|" ..
 		"baobian|ganlu|tiaoxin|zhaolie|moukui|liegong|mengjin|qianxi|tieji|wushuang|juejing|nosfuhun|nosqianxi|yanxiao|jueji|tanhu|huoshui|guhuo|xuanhuo|" ..
-		"nosxuanhuo|qiangxi|fangquan|lirang|longluo|nosjujian|lieren|pojun|bawang|qixi|yinling|nosjizhi|jizhi|duoshi|zhaoxin|gongqi|neoluoyi|luoyi|wenjiu|jie|" ..
+		"nosxuanhuo|qiangxi|fangquan|lirang|longluo|nosjujian|lieren|pojun|bawang|qixi|yinling|nosjizhi|jizhi|duoshi|zhaoxin|gongqi|neoluoyi|wangxi|luoyi|wenjiu|jie|" ..
 		"jiangchi|wusheng|longdan|jueqing|xueji|yinghun|longhun|jiuchi|qingcheng|shuangren|kuangfu|nosgongqi|wushen|paoxiao|lianhuan|chouliang|" ..
 		"houyuan|jujian|shensu|jisu|luanji|chizhong|zhijian|shuangxiong|xinzhan|ytzhenwei|jieyuan|duanbing|fenxun|guidao|guicai|noszhenlie|wansha|" ..
 		"bifa|lianpo|yicong|nosshangshi|shangshi|lianying|tianyi|xianzhen|zongshi|keji|kuiwei|yuanhu|juao|neojushou|jushou|huoji|roulin|fuhun|lihuo|xiaoji|" ..
@@ -1156,7 +1156,7 @@ function sgs.ai_skill_choice.huashen(self, choices, data, xiaode_choice)
 			if str:matchOne(askill) then return askill end
 		end
 
-		for _, askill in ipairs(("yiji|fankui|jieming|vsganglie|neoganglie|ganglie|enyuan|fangzhu|nosenyuan|langgu"):split("|")) do
+		for _, askill in ipairs(("yiji|fankui|jieming|vsganglie|neoganglie|ganglie|enyuan|fangzhu|nosenyuan|wangxi|hengjiang|duodao|langgu"):split("|")) do
 			if str:matchOne(askill) then return askill end
 		end
 
