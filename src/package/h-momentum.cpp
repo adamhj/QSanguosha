@@ -24,21 +24,34 @@ public:
             if (room->askForSkillInvoke(lidian, objectName())) {
                 room->broadcastSkillInvoke(objectName());
                 QList<int> card_ids = room->getNCards(4);
-                QList<int> obtained;
-                room->fillAG(card_ids, lidian);
-                int id1 = room->askForAG(lidian, card_ids, false, objectName());
-                card_ids.removeOne(id1);
-                obtained << id1;
-                room->takeAG(lidian, id1, false);
-                int id2 = room->askForAG(lidian, card_ids, false, objectName());
-                card_ids.removeOne(id2);
-                obtained << id2;
-                room->clearAG(lidian);
+                //QList<int> obtained;
+                //room->fillAG(card_ids, lidian);
+                //int id1 = room->askForAG(lidian, card_ids, false, objectName());
+                //card_ids.removeOne(id1);
+                //obtained << id1;
+                //room->takeAG(lidian, id1, false);
+                //int id2 = room->askForAG(lidian, card_ids, false, objectName());
+                //card_ids.removeOne(id2);
+                //obtained << id2;
+                //room->clearAG(lidian);
+
+                DummyCard *dummy = new DummyCard;
+                for(int i=0; i<2; i++) {
+                    room->fillAG(card_ids, lidian);
+                    int card_id = room->askForAG(lidian, card_ids, false, objectName());
+                    card_ids.removeOne(card_id);
+                    dummy->addSubcard(card_id);
+                    room->clearAG(lidian);
+                }
+
+                room->doBroadcastNotify(QSanProtocol::S_COMMAND_UPDATE_PILE, Json::Value(room->getDrawPile().length() + dummy->subcardsLength()));
+                lidian->obtainCard(dummy, false);
+                dummy->deleteLater();
 
                 room->askForGuanxing(lidian, card_ids, Room::GuanxingDownOnly);
-                DummyCard *dummy = new DummyCard(obtained);
-                lidian->obtainCard(dummy, false);
-                delete dummy;
+                //DummyCard *dummy = new DummyCard(obtained);
+                //lidian->obtainCard(dummy, false);
+                //delete dummy;
 
                 return true;
             }
